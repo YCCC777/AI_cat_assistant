@@ -12,10 +12,18 @@ from linebot.v3.messaging import (
     CarouselTemplate,
     CarouselColumn,
     MessageAction,
+    RichMenuRequest,
+    RichMenuArea,
+    RichMenuSize,
+    RichMenuBounds,
 )
 from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from src.utils.config import settings
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 
 class LineService:
     """
@@ -27,6 +35,59 @@ class LineService:
         self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
         self.api_client = ApiClient(self.configuration)
         self.messaging_api = MessagingApi(self.api_client)
+
+    def init_rich_menu(self, image_path: str = "image/rich_menu.png"):
+        """
+        初始化 Rich Menu (建立並設定為預設)。
+        """
+        try:
+            # 1. 定義 Rich Menu 結構 (2500x1686 或 2500x843)
+            # 這裡假設是一個 2500x843 的選單，分三個區域
+            rich_menu_request = RichMenuRequest(
+                size=RichMenuSize(width=2500, height=843),
+                selected=True,
+                name="貓咪助手功能選單",
+                chat_bar_text="點我打開選單喵！🐾",
+                areas=[
+                    RichMenuArea(
+                        bounds=RichMenuBounds(x=0, y=0, width=833, height=843),
+                        action=MessageAction(label="AI 課程查詢", text="AI 課程查詢")
+                    ),
+                    RichMenuArea(
+                        bounds=RichMenuBounds(x=833, y=0, width=834, height=843),
+                        action=MessageAction(label="AI 週報", text="AI 週報")
+                    ),
+                    RichMenuArea(
+                        bounds=RichMenuBounds(x=1667, y=0, width=833, height=843),
+                        action=MessageAction(label="貓咪陪讀", text="貓咪陪讀")
+                    )
+                ]
+            )
+
+            # 2. 建立 Rich Menu
+            rich_menu_id = self.messaging_api.create_rich_menu(rich_menu_request).rich_menu_id
+            logger.info(f"Rich Menu 建立成功，ID: {rich_menu_id}")
+
+            # 3. 上傳圖片 (如果檔案存在)
+            if os.path.exists(image_path):
+                with open(image_path, "rb") as f:
+                    self.messaging_api.set_rich_menu_image(
+                        rich_menu_id=rich_menu_id,
+                        body=f.read(),
+                        content_type="image/png"
+                    )
+                logger.info("Rich Menu 圖片上傳成功。")
+            else:
+                logger.warning(f"找不到 Rich Menu 圖片 ({image_path})，將不進行圖片上傳。")
+
+            # 4. 設定為全域預設
+            self.messaging_api.set_default_rich_menu(rich_menu_id)
+            logger.info("Rich Menu 已設定為全域預設。")
+            
+            return rich_menu_id
+        except Exception as e:
+            logger.error(f"初始化 Rich Menu 失敗: {str(e)}")
+            return None
 
     def reply_text(self, reply_token: str, text: str):
         """

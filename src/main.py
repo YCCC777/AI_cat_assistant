@@ -119,6 +119,15 @@ def handle_text_message(event: MessageEvent):
         line_service.reply_text(reply_token, "喵嗚～週報模組還在貓咪產房努力中！預計 Phase 3 就會跟大家見面了，主人再等等本喵喔～🐾")
         return
 
+    # 管理員指令：更新選單
+    if message_text == "更新選單" and user_id == settings.ADMIN_LINE_USER_ID:
+        rich_menu_id = line_service.init_rich_menu()
+        if rich_menu_id:
+            line_service.reply_text(reply_token, f"喵！選單更新成功囉！\nID: {rich_menu_id}")
+        else:
+            line_service.reply_text(reply_token, "喵嗚...選單更新失敗了，請檢查伺服器日誌。")
+        return
+
     # 1. 重複訊息過濾 (節省 Token)
     if deduplicator.is_duplicate(message_text):
         line_service.reply_text(reply_token, "喵？這則訊息本喵好像已經記過囉！重複的就不再記一次了喵～🐾")

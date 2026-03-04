@@ -55,33 +55,42 @@ class CalendarService:
             logger.info("行事曆服務未初始化，略過新增。")
             return None
 
-        # 這裡使用 AI 給出的 iso_start_time / iso_end_time 
-        # 如果解析不出來，則預設 2026-03-21 作為保底
+        # 1. 時間格式處理：確保符合 ISO 8601 並包含時區
+        # 如果 AI 沒給，保底設為 2026-03-21
         start_time = course.iso_start_time or '2026-03-21T09:00:00'
         end_time = course.iso_end_time or '2026-03-21T11:00:00'
+
+        # 確保格式中包含時區資訊 (若無則加上 +08:00)
+        def ensure_timezone(dt_str):
+            if "+" not in dt_str and "Z" not in dt_str:
+                return f"{dt_str}+08:00"
+            return dt_str
+
+        start_dt = ensure_timezone(start_time)
+        end_dt = ensure_timezone(end_time)
 
         event = {
             'summary': f'📚 {course.name}',
             'location': course.location_url or '線上',
             'description': f'主辦單位: {course.organizer or "未知"}\n\n原始訊息:\n{course.raw_content}',
             'start': {
-                'dateTime': start_time,
-                'timeZone': 'Asia/Taipei',
+                'dateTime': start_dt,
             },
             'end': {
-                'dateTime': end_time,
-                'timeZone': 'Asia/Taipei',
+                'dateTime': end_dt,
             },
         }
 
         try:
-            event = self.service.events().insert(
+            logger.info(f"正在嘗試新增行事曆事件: {course.name} ({start_dt})")
+            event_result = self.service.events().insert(
                 calendarId=settings.GOOGLE_CALENDAR_ID, body=event
             ).execute()
-            logger.info(f"成功新增行事曆事件: {event.get('htmlLink')}")
-            return event
+            logger.info(f"成功新增行事曆事件: {event_result.get('htmlLink')}")
+            return event_result
         except Exception as e:
-            logger.error(f"新增行事曆事件失敗: {str(e)}")
+            logger.error(f"新增行事曆事件失敗! 詳細錯誤: {str(e)}")
+            # 拋出部分錯誤細節以便上層追蹤，但不中斷整體流程
             return None
 
 # 單例模式實例
