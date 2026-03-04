@@ -16,20 +16,13 @@ class StudyService:
         """
         progress = notion_service.get_user_progress(user_id)
         if not progress:
-            return "喵～看來您還沒加入陪讀計畫呢！
-請輸入「報名 [考試名稱] [日期(YYYY-MM-DD)]」來啟動喵！
-例如：報名 iPAS AI 2026-05-20"
+            return "喵～看來您還沒加入陪讀計畫呢！\n請輸入「報名 [考試名稱] [日期(YYYY-MM-DD)]」來啟動喵！\n例如：報名 iPAS AI 2026-05-20"
         
         return (
-            f"🐾 您的陪讀進度 🐾
-"
-            f"📖 目標：{progress['exam_name']}
-"
-            f"⏳ 倒數：{self._calculate_countdown(progress['exam_date'])} 天
-"
-            f"🍖 已讀：{progress['current_index']} 張學習卡
-
-"
+            f"🐾 您的陪讀進度 🐾\n"
+            f"📖 目標：{progress['exam_name']}\n"
+            f"⏳ 倒數：{self._calculate_countdown(progress['exam_date'])} 天\n"
+            f"🍖 已讀：{progress['current_index']} 張學習卡\n\n"
             f"點擊下方選單或輸入「餵罐罐」來讀書喵！"
         )
 
@@ -82,8 +75,6 @@ class StudyService:
             line_service.reply_text(reply_token, "喵！恭喜您！目前的學習卡已經全部讀完了！本喵正在努力準備更多罐罐，請期待喔～🐾")
             return
 
-        # 更新 Notion 進度 (這是在點擊「我懂了」之後才更新，還是發送時更新？)
-        # 根據計畫，應該是點擊按鈕後才更新索引。發送時只是讀取。
         line_service.reply_learning_card(reply_token, card["chapter"], card["content"], next_index)
 
     def handle_next_card_click(self, reply_token: str, user_id: str, finished_index: int):
