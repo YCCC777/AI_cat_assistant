@@ -114,24 +114,24 @@ class LineService:
             columns=[
                 CarouselColumn(
                     thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_learning.png",
-                    title="餵罐罐時間",
-                    text="來領取下一張 AI 學習卡喵！",
+                    title="餵罐罐",
+                    text="領取學習卡，開始今天的知識補給喵！",
                     actions=[
-                        MessageAction(label="領取罐罐", text="餵罐罐")
+                        MessageAction(label="領取學習卡", text="餵罐罐")
                     ]
                 ),
                 CarouselColumn(
                     thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_countdown.png",
-                    title="捏捏肉球",
-                    text="查看考試倒數天數，給您打氣喵！",
+                    title="捏肉球",
+                    text="讀書打卡，記錄今天的學習成果喵！",
                     actions=[
-                        MessageAction(label="查看倒數", text="捏肉球")
+                        MessageAction(label="讀書打卡", text="捏肉球")
                     ]
                 ),
                 CarouselColumn(
                     thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_progress.png",
                     title="讀書進度",
-                    text="看看目前讀了多少罐罐喵！",
+                    text="查看目前讀書進度，看看累積了多少喵！",
                     actions=[
                         MessageAction(label="查看進度", text="讀書進度")
                     ]
@@ -139,9 +139,9 @@ class LineService:
                 CarouselColumn(
                     thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_setting.png",
                     title="陪讀設定",
-                    text="想要修改考試日期或名稱嗎喵？",
+                    text="更改考試種類或設定考試日期喵！",
                     actions=[
-                        MessageAction(label="重新設定", text="報名")
+                        MessageAction(label="陪讀設定", text="報名")
                     ]
                 )
             ]
