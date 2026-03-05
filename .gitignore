@@ -13,8 +13,12 @@ wheels/
 .env
 credentials/
 *.json
-image/
 !pyproject.toml
+
+# 大型媒體檔 (LINE 輪播小圖 image/*.png 需保留在 GitHub 供 raw URL 使用)
+*.mp4
+*.mov
+*.avi
 
 # Local databases/usage files
 user_usage.json
