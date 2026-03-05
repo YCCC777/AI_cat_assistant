@@ -10,7 +10,7 @@ LINE Bot 貓咪助手，部署在 Hugging Face Spaces (Docker)。
 | Web框架 | FastAPI + uvicorn (port 7860) |
 | 套件管理 | uv |
 | LINE SDK | line-bot-sdk v3 (linebot.v3) |
-| AI 模型 | Gemini 2.5 Flash Lite (`gemini-2.5-flash-lite`) — 確認為有效模型 |
+| AI 模型 | Gemini 2.5 Flash Lite (`gemini-2.5-flash-lite`) — 確認為有效模型，使用 `google-genai` 新 SDK |
 | 部署平台 | Hugging Face Spaces (`LisaCC/AI-Cat-Assistant`) |
 | 圖片 Repo | GitHub `YCCC777/AI_cat_assistant` (origin) |
 
@@ -23,10 +23,10 @@ LINE Bot 貓咪助手，部署在 Hugging Face Spaces (Docker)。
 
 ## 已確認的 Bugs 與修復狀態
 
-### Bug 1 — `asyncio.create_task()` 在同步 LINE handler 中 ⏳ 待重構
-- **位置**：`src/main.py:147`
-- **問題**：LINE handler callback 是 sync，但呼叫 `asyncio.create_task()`
-- **修復方向**：重構為直接在 async `webhook()` 端點中處理，不走 handler decorator
+### Bug 1 — `asyncio.create_task()` 在同步 LINE handler 中 ✅ 已修復 (2026-03-05)
+- **位置**：`src/main.py`
+- **修復**：`WebhookHandler` → `WebhookParser` + FastAPI `BackgroundTasks`
+  所有 handler callback 改為 `async def`，完全正確的非同步流程
 
 ### Bug 2 — 輪播圖片過大 + `.gitignore` 排除 ⏳ 待壓縮
 - **問題 A**：`.gitignore` 有 `image/`，已修復為允許 `*.png` 追蹤
@@ -94,4 +94,5 @@ https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/{filename}
 |------|------|
 | 2026-03-05 | 放棄 Gemini CLI 生成的程式碼架構，改由 Claude Code 重構 |
 | 2026-03-05 | 確認 `gemini-2.5-flash-lite` 為有效模型（不需更換） |
+| 2026-03-05 | 遷移 Gemini SDK：`google-generativeai`（已停止維護）→ `google-genai`（新版，有原生 async） |
 | 2026-03-05 | 輪播圖片保留存放於 GitHub，透過 raw URL 顯示（不放進 Docker） |
