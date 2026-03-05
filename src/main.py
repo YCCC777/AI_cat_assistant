@@ -109,7 +109,28 @@ async def handle_text_message(event: MessageEvent):
 
     # 2. 固定回覆指令
     if message_text == "AI 課程查詢":
-        line_service.reply_text(reply_token, "喵～主人，您只要直接把想記下來的「課程訊息」或「網址」貼給本喵，我就會自動幫您塞進去行事曆跟 Notion 囉！🐾")
+        events = calendar_service.get_upcoming_events(days=7)
+        if not events:
+            reply = "喵～本喵翻遍整本行事曆了，接下來 7 天暫時沒有排課耶！趁現在好好充電，等好課出現本喵第一個通知主人喵～😸\n\n💡 小提醒：把課程訊息貼給本喵，我會自動幫您存進行事曆喔！"
+        else:
+            lines = [f"喵～找到了！接下來 7 天共有 {len(events)} 堂課等著主人喔！🐾\n"]
+            for e in events:
+                name = e.get("summary", "未知課程").replace("📚 ", "")
+                start = e.get("start", {}).get("dateTime") or e.get("start", {}).get("date", "")
+                link = e.get("location", "")
+                # 格式化時間：2026-03-15T14:00:00+08:00 → 3/15 14:00
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(start)
+                    time_str = f"{dt.month}/{dt.day} {dt.strftime('%H:%M')}"
+                except Exception:
+                    time_str = start[:16].replace("T", " ")
+                entry = f"📚 {name}\n⏰ {time_str}"
+                if link and link != "線上":
+                    entry += f"\n🔗 {link}"
+                lines.append(entry)
+            reply = "\n---\n".join(lines)
+        line_service.reply_text(reply_token, reply)
         return
 
     if message_text == "AI 週報":

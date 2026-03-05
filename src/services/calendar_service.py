@@ -90,8 +90,34 @@ class CalendarService:
             return event_result
         except Exception as e:
             logger.error(f"新增行事曆事件失敗! 詳細錯誤: {str(e)}")
-            # 拋出部分錯誤細節以便上層追蹤，但不中斷整體流程
             return None
+
+    def get_upcoming_events(self, days: int = 7):
+        """
+        查詢接下來指定天數內的課程事件。
+        """
+        if not self.service:
+            logger.info("行事曆服務未初始化，略過查詢。")
+            return []
+
+        try:
+            from datetime import datetime, timedelta, timezone
+            tz_utc8 = timezone(timedelta(hours=8))
+            now = datetime.now(tz_utc8)
+            time_min = now.isoformat()
+            time_max = (now + timedelta(days=days)).isoformat()
+
+            events_result = self.service.events().list(
+                calendarId=settings.GOOGLE_CALENDAR_ID,
+                timeMin=time_min,
+                timeMax=time_max,
+                singleEvents=True,
+                orderBy="startTime"
+            ).execute()
+            return events_result.get("items", [])
+        except Exception as e:
+            logger.error(f"查詢行事曆失敗: {str(e)}")
+            return []
 
 # 單例模式實例
 calendar_service = CalendarService()
