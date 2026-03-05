@@ -29,5 +29,5 @@ ENV PORT=7860
 # 暴露 Hugging Face 預設端口
 EXPOSE 7860
 
-# 啟動指令 (使用 uv 執行)
-CMD ["uv", "run", "python", "-m", "src.main"]
+# 啟動指令 (直接用 uvicorn，避免 python -m 雙重 import)
+CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "7860"]

@@ -21,6 +21,7 @@ app = FastAPI()
 parser = WebhookParser(settings.LINE_CHANNEL_SECRET)
 
 
+@app.get("/")
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
