@@ -37,10 +37,11 @@ LINE Bot 貓咪助手，部署在 Hugging Face Spaces (Docker)。
 ### Bug 3 — Gemini 模型名稱 ✅ 確認無誤
 - `gemini-2.5-flash-lite` 是有效的穩定 API 模型（2025/07 GA）
 
-### Bug 4 — Rich Menu 圖片上傳用錯 API Client ⏳ 待修復
-- **位置**：`src/services/line_service.py:74`
-- **問題**：`set_rich_menu_image` 需要 `MessagingApiBlob`，不是 `MessagingApi`
-- **修復方向**：初始化一個 `MessagingApiBlob` 實例供圖片上傳使用
+### Bug 4 — Rich Menu 圖片上傳用錯 API Client ✅ 已修復 (2026-03-05)
+- **位置**：`src/services/line_service.py`
+- **問題 A**：`set_rich_menu_image` 需要 `MessagingApiBlob`，不是 `MessagingApi`
+- **問題 B**：圖片檔名雙副檔名 `rich_menu.png.png`，改為 `rich_menu.jpg`
+- **修復**：新增 `self.messaging_blob_api = MessagingApiBlob(self.api_client)`，圖片改 JPEG (257KB)
 
 ## 架構說明
 
