@@ -3,6 +3,7 @@ from linebot.v3.messaging import (
     Configuration,
     ApiClient,
     MessagingApi,
+    MessagingApiBlob,
     ReplyMessageRequest,
     TextMessage,
     PushMessageRequest,
@@ -35,8 +36,9 @@ class LineService:
         self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
         self.api_client = ApiClient(self.configuration)
         self.messaging_api = MessagingApi(self.api_client)
+        self.messaging_blob_api = MessagingApiBlob(self.api_client)
 
-    def init_rich_menu(self, image_path: str = "image/rich_menu.png"):
+    def init_rich_menu(self, image_path: str = "image/rich_menu.jpg"):
         """
         初始化 Rich Menu (建立並設定為預設)。
         """
@@ -68,13 +70,14 @@ class LineService:
             rich_menu_id = self.messaging_api.create_rich_menu(rich_menu_request).rich_menu_id
             logger.info(f"Rich Menu 建立成功，ID: {rich_menu_id}")
 
-            # 3. 上傳圖片 (如果檔案存在)
+            # 3. 上傳圖片 (如果檔案存在，使用 MessagingApiBlob 處理二進位)
             if os.path.exists(image_path):
+                content_type = "image/jpeg" if image_path.endswith(".jpg") else "image/png"
                 with open(image_path, "rb") as f:
-                    self.messaging_api.set_rich_menu_image(
+                    self.messaging_blob_api.set_rich_menu_image(
                         rich_menu_id=rich_menu_id,
                         body=f.read(),
-                        content_type="image/png"
+                        _headers={"Content-Type": content_type}
                     )
                 logger.info("Rich Menu 圖片上傳成功。")
             else:
