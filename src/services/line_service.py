@@ -1,4 +1,3 @@
-from linebot.v3 import WebhookHandler
 from linebot.v3.messaging import (
     Configuration,
     ApiClient,
@@ -18,8 +17,6 @@ from linebot.v3.messaging import (
     RichMenuSize,
     RichMenuBounds,
 )
-from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from src.utils.config import settings
 import logging
 import os
@@ -31,9 +28,7 @@ class LineService:
     負責 LINE 平台通訊的服務。
     """
     def __init__(self):
-        # 初始化 LINE 配置
         self.configuration = Configuration(access_token=settings.LINE_CHANNEL_ACCESS_TOKEN)
-        self.handler = WebhookHandler(settings.LINE_CHANNEL_SECRET)
         self.api_client = ApiClient(self.configuration)
         self.messaging_api = MessagingApi(self.api_client)
         self.messaging_blob_api = MessagingApiBlob(self.api_client)
@@ -198,15 +193,6 @@ class LineService:
                 messages=[TextMessage(text=text)]
             )
         )
-
-    async def handle_webhook(self, body: str, signature: str):
-        """
-        處理 Webhook 並將事件傳遞給 handler。
-        """
-        try:
-            self.handler.handle(body, signature)
-        except InvalidSignatureError:
-            raise Exception("Invalid signature")
 
 # 單例模式實例
 line_service = LineService()

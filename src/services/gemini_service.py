@@ -1,23 +1,21 @@
-import google.generativeai as genai
+from google import genai
 import json
 from typing import List, Union
 from src.utils.config import settings
 from src.models.course import CourseInfo
+
 
 class GeminiService:
     """
     負責 AI 解析與過濾的核心服務。
     """
     def __init__(self):
-        # 初始化 Gemini API
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     async def parse_course_info(self, message_content: str) -> Union[CourseInfo, List[CourseInfo]]:
         """
         將 LINE 轉傳的內容解析為課程資訊，支援一次多個課程。
         """
-        # 設定角色與解析指令 (Persona: 可愛、溫暖的「貓咪助手」)
         prompt = f"""
 你是一個可愛、溫暖的「貓咪助手」，對話請使用道地的台灣繁體中文，並帶有「喵～」的語氣與 Emoji 表情符號。
 你的任務是解析以下 LINE 社群轉傳的訊息，判斷是否為「免費 AI 相關課程資訊」。
@@ -52,23 +50,25 @@ class GeminiService:
 }}
 """
         try:
-            # 呼叫 Gemini 進行解析
-            response = self.model.generate_content(prompt)
+            response = await self.client.aio.models.generate_content(
+                model=settings.GEMINI_MODEL_NAME,
+                contents=prompt
+            )
             json_text = response.text.strip()
             if "```json" in json_text:
                 json_text = json_text.split("```json")[1].split("```")[0].strip()
             elif "```" in json_text:
                 json_text = json_text.split("```")[1].split("```")[0].strip()
-                
+
             data = json.loads(json_text)
-            
+
             if isinstance(data, list):
                 return [CourseInfo(**item) for item in data]
             else:
                 return CourseInfo(**data)
         except Exception as e:
-            # 拋出異常，交給 main.py 統一處理魅力回覆
             raise e
+
 
 # 單例模式實例
 gemini_service = GeminiService()
