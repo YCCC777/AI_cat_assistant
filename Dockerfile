@@ -4,8 +4,9 @@ FROM python:3.12-slim
 # 設定工作目錄
 WORKDIR /app
 
-# 安裝 uv
+# 安裝 uv 與 curl
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 # 複製依賴文件並安裝
 COPY pyproject.toml uv.lock ./
@@ -15,9 +16,11 @@ RUN uv sync --frozen --no-cache
 COPY src ./src
 COPY README.md ./
 
-# 建立必要的資料夾 (用於存放 json 紀錄)
-RUN mkdir -p /app/data
-# 修正 token_usage.json 與 user_usage.json 的路徑 (後續我們會微調程式碼讀取這裡)
+# 建立 image 資料夾並從 GitHub 下載 Rich Menu 圖片
+# (圖片不 commit 進 HF Spaces，由 build 時自動抓取)
+RUN mkdir -p /app/image && \
+    curl -fsSL "https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/rich_menu.jpg" \
+    -o /app/image/rich_menu.jpg
 
 # 設定環境變數
 ENV PYTHONUNBUFFERED=1
