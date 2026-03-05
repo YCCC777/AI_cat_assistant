@@ -76,6 +76,8 @@ async def handle_text_message(event: MessageEvent):
     message_text = event.message.text
     user_id = event.source.user_id
 
+    logger.info(f"收到訊息 user={user_id[:8]}... text={message_text[:30]!r}")
+
     # 0. 防連打
     if user_limiter.is_too_fast(user_id):
         line_service.reply_text(reply_token, "喵～主人的手速太快了，本喵快跟不上了！請休息 3 秒鐘再傳訊息給我喵～🐾")
@@ -152,6 +154,7 @@ async def process_and_reply(reply_token: str, message_text: str, user_id: str):
         reply_msgs = []
         for course_info in courses:
             if not course_info.is_course:
+                logger.info(f"AI 判定非課程: {course_info.reason}")
                 reply_msgs.append(f"📚 {course_info.name or '未知課程'}: 喵？這看起來不像 AI 課程資訊耶...是不是被本喵的魅力給迷倒輸入錯誤呢？")
                 continue
 
@@ -169,8 +172,8 @@ async def process_and_reply(reply_token: str, message_text: str, user_id: str):
         user_limiter.add_usage(user_id)
 
     except Exception as e:
-        logger.error(f"處理訊息時出錯: {str(e)}")
-        line_service.reply_text(reply_token, "喵？這看起來不像 AI 課程資訊耶...是不是被本喵的魅力給迷倒輸入錯誤呢？")
+        logger.error(f"process_and_reply 出錯: {type(e).__name__}: {str(e)}", exc_info=True)
+        line_service.reply_text(reply_token, "喵嗚...本喵腦袋打結了，請稍後再試一次！🐾")
 
 
 if __name__ == "__main__":

@@ -94,13 +94,16 @@ class LineService:
         # 統一處理貓咪語氣 (如果回覆內容沒有喵)
         if "喵" not in text:
             text = f"{text} 喵～🐾"
-            
-        self.messaging_api.reply_message(
-            ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[TextMessage(text=text)]
+
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=text)]
+                )
             )
-        )
+        except Exception as e:
+            logger.error(f"reply_text 失敗 (token={reply_token[:8]}...): {str(e)}")
 
     def reply_study_carousel(self, reply_token: str):
         """
