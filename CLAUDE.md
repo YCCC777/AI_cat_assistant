@@ -21,15 +21,34 @@ LINE Bot 貓咪助手，部署在 Hugging Face Spaces (Docker)。
 | `main` | `origin` (GitHub) | 開發主線，含圖片檔案 |
 | `hf-deploy` | `hf` (HF Spaces) | 部署分支，**無 binary 圖片**，HF 才能接受 |
 
-**工作流程**：
-1. 開發在 `main` → push 到 `origin`
-2. 部署時：`git checkout hf-deploy` → `git merge main` → `git push hf hf-deploy:main --force`
-3. 切回：`git checkout main`
+### 日常更新部署流程
 
-> ⚠️ HF Token 更新後需執行：
+```bash
+# Step 1：開發完推 GitHub
+git checkout main
+git add <改動的檔案>
+git commit -m "..."
+git push origin main
+
+# Step 2：同步到 HF 部署分支
+git checkout hf-deploy
+git checkout main -- src/ Dockerfile pyproject.toml uv.lock CLAUDE.md
+# ⚠️ 不要 git merge main（會帶入 image/ 的刪除記錄）
+git add -A
+git commit -m "deploy: sync from main YYYY-MM-DD"
+
+# Step 3：推到 HF Spaces
+git push hf hf-deploy:main --force
+
+# Step 4：切回繼續開發
+git checkout main
+```
+
+> ⚠️ HF Token 更新後需執行（token 絕對不要 commit 進 git！）：
 > `git remote set-url hf https://LisaCC:<新TOKEN>@huggingface.co/spaces/LisaCC/AI-Cat-Assistant`
 
-> 注意：HF Spaces 拒絕 binary commit，`hf-deploy` 分支永遠不 commit 圖片（Dockerfile 在 build 時用 curl 從 GitHub 下載）
+> 注意：HF Spaces 拒絕 binary commit，`hf-deploy` 分支永遠不 commit 圖片。
+> 不要用 `git merge main`，改用 `git checkout main -- <files>` 逐一同步程式碼檔案。
 
 ## 已確認的 Bugs 與修復狀態
 
