@@ -14,12 +14,22 @@ LINE Bot 貓咪助手，部署在 Hugging Face Spaces (Docker)。
 | 部署平台 | Hugging Face Spaces (`LisaCC/AI-Cat-Assistant`) |
 | 圖片 Repo | GitHub `YCCC777/AI_cat_assistant` (origin) |
 
-## Git Remotes
+## Git 分支與部署策略
 
-- `origin` → `https://github.com/YCCC777/AI_cat_assistant.git` (GitHub, 輪播圖片 raw URL 來源)
-- `hf` → `https://huggingface.co/spaces/LisaCC/AI-Cat-Assistant` (HF Spaces 部署端)
+| 分支 | Remote | 用途 |
+|------|--------|------|
+| `main` | `origin` (GitHub) | 開發主線，含圖片檔案 |
+| `hf-deploy` | `hf` (HF Spaces) | 部署分支，**無 binary 圖片**，HF 才能接受 |
 
-> ⚠️ HF Token 已於 2026-03-05 刪除並重新產生，記得更新 hf remote URL 中的 token。
+**工作流程**：
+1. 開發在 `main` → push 到 `origin`
+2. 部署時：`git checkout hf-deploy` → `git merge main` → `git push hf hf-deploy:main --force`
+3. 切回：`git checkout main`
+
+> ⚠️ HF Token 更新後需執行：
+> `git remote set-url hf https://LisaCC:<新TOKEN>@huggingface.co/spaces/LisaCC/AI-Cat-Assistant`
+
+> 注意：HF Spaces 拒絕 binary commit，`hf-deploy` 分支永遠不 commit 圖片（Dockerfile 在 build 時用 curl 從 GitHub 下載）
 
 ## 已確認的 Bugs 與修復狀態
 
@@ -28,11 +38,10 @@ LINE Bot 貓咪助手，部署在 Hugging Face Spaces (Docker)。
 - **修復**：`WebhookHandler` → `WebhookParser` + FastAPI `BackgroundTasks`
   所有 handler callback 改為 `async def`，完全正確的非同步流程
 
-### Bug 2 — 輪播圖片過大 + `.gitignore` 排除 ⏳ 待壓縮
-- **問題 A**：`.gitignore` 有 `image/`，已修復為允許 `*.png` 追蹤
-- **問題 B（主因）**：圖片各約 7MB，LINE 輪播縮圖上限為 **1MB**，超過就不顯示
-- **修復**：需將圖片壓縮至 <1MB（建議 200–500KB），尺寸建議 1024×512px
-- **現狀**：圖片已在 GitHub origin (`f915b8b`)，但太大 LINE 無法顯示
+### Bug 2 — 輪播圖片過大 + `.gitignore` 排除 ✅ 已修復 (2026-03-05)
+- **問題 A**：`.gitignore` 有 `image/`，改為只排除影音大檔（GitHub branch）
+- **問題 B（主因）**：圖片各約 7MB，LINE 輪播縮圖上限為 **1MB**
+- **修復**：壓縮至 779–871KB，1024×686px
 
 ### Bug 3 — Gemini 模型名稱 ✅ 確認無誤
 - `gemini-2.5-flash-lite` 是有效的穩定 API 模型（2025/07 GA）
@@ -47,12 +56,12 @@ LINE Bot 貓咪助手，部署在 Hugging Face Spaces (Docker)。
 
 ```
 src/
-├── main.py              # FastAPI app + LINE webhook handler + 路由邏輯
+├── main.py              # FastAPI app + WebhookParser + BackgroundTasks 路由
 ├── models/
 │   └── course.py        # CourseInfo / TokenUsage Pydantic model
 ├── services/
 │   ├── line_service.py  # LINE Bot API 封裝 (reply, push, rich menu, carousel)
-│   ├── gemini_service.py# Gemini AI 解析服務
+│   ├── gemini_service.py# Gemini AI 解析服務 (google-genai, native async)
 │   ├── calendar_service.py # Google Calendar API
 │   ├── notion_service.py   # Notion API (課程DB + 陪讀進度DB + 學習卡DB)
 │   └── study_service.py    # 陪讀模組業務邏輯
@@ -81,12 +90,14 @@ ADMIN_LINE_USER_ID=
 
 ## 輪播圖片路徑規則
 
-圖片存放在 `image/` 資料夾，推至 GitHub origin 後透過 raw URL 供 LINE 顯示：
+圖片存放在 `image/` 資料夾（僅 GitHub origin，不推 HF），透過 raw URL 供 LINE 顯示：
 ```
 https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/{filename}.png
 ```
 
 目前圖片：`card_learning.png`, `card_countdown.png`, `card_progress.png`, `card_setting.png`
+
+Rich Menu 圖片：`image/rich_menu.jpg`（Dockerfile build 時自動從 GitHub 下載）
 
 ## 重要決策記錄
 
@@ -95,4 +106,5 @@ https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/{filename}
 | 2026-03-05 | 放棄 Gemini CLI 生成的程式碼架構，改由 Claude Code 重構 |
 | 2026-03-05 | 確認 `gemini-2.5-flash-lite` 為有效模型（不需更換） |
 | 2026-03-05 | 遷移 Gemini SDK：`google-generativeai`（已停止維護）→ `google-genai`（新版，有原生 async） |
-| 2026-03-05 | 輪播圖片保留存放於 GitHub，透過 raw URL 顯示（不放進 Docker） |
+| 2026-03-05 | 輪播圖片存 GitHub，carousel 用 raw URL；Rich Menu 圖片由 Dockerfile build 時下載 |
+| 2026-03-05 | HF Spaces 拒絕 binary commit，建立 `hf-deploy` orphan 分支（無圖片歷史）供 HF 部署 |
