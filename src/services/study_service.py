@@ -46,25 +46,33 @@ class StudyService:
             f"📝 設定方式：\n"
             f"輸入「報名 考試名稱 日期」\n\n"
             f"範例：\n"
-            f"報名 iPAS AI應用規劃師 2026-05-20\n\n"
+            f"報名 iPAS AI應用規劃師（初級） 2026-05-20\n\n"
+            f"⚠️ 目前僅支援 iPAS 初級\n\n"
             f"設定完成後，每次捏肉球領學習卡時，本喵都會順便提醒你還剩幾天喵！🐾"
         )
 
     def register_exam(self, user_id: str, text: str):
         """
         解析報名資訊並存入 Notion。
-        格式：報名 [考試名稱] [日期]
+        格式：報名 [考試名稱] [日期]（日期一定是最後一格）
         """
         try:
             parts = text.replace("報名", "").strip().split()
             if len(parts) < 2:
-                return "喵？格式不對喔！請輸入「報名 [考試名稱] [YYYY-MM-DD]」喵～"
-            
-            exam_name = parts[0]
-            exam_date = parts[1]
-            
+                return "喵？格式不對喔！請輸入「報名 考試名稱 YYYY-MM-DD」喵～\n例如：報名 iPAS AI應用規劃師（初級） 2026-05-20"
+
+            exam_date = parts[-1]
+            exam_name = " ".join(parts[:-1])
+
             # 驗證日期格式
             datetime.strptime(exam_date, "%Y-%m-%d")
+
+            # iPAS 必須註明初級或中級
+            if "iPAS" in exam_name or "應用規劃師" in exam_name:
+                if "中級" in exam_name:
+                    return "喵嗚...本喵目前只支援 iPAS AI應用規劃師（初級）的陪讀計畫，中級還在努力準備中，請主人稍待喵！🐾"
+                if "初級" not in exam_name:
+                    return "喵～iPAS AI應用規劃師有分初級和中級喔！請主人在考試名稱中註明，例如：\n報名 iPAS AI應用規劃師（初級） 2026-05-20"
             
             success = notion_service.update_user_progress(user_id, {
                 "exam_name": exam_name,
