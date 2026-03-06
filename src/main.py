@@ -115,11 +115,7 @@ async def handle_text_message(event: MessageEvent):
 
     # 2. 固定回覆指令
     if message_text == "AI 資訊":
-        line_service.reply_with_quick_reply(
-            reply_token,
-            "喵～請問主人想看什麼資訊呢？🐾",
-            [("最新 AI 課程", "AI 課程"), ("iPAS 最新消息", "AI 考試資訊")]
-        )
+        await handle_ai_exam_info(reply_token)
         return
 
     if message_text == "AI 課程":
@@ -212,7 +208,7 @@ async def handle_ai_exam_info(reply_token: str):
         fetched_dt = datetime.fromisoformat(data["fetched_at"])
         date_str = f"{fetched_dt.year}年{fetched_dt.month:02d}月{fetched_dt.day:02d}日"
         lines = [f"喵～以下是本喵 {date_str} 趁大家不注意、悄悄出任務爬回來的 iPAS 最新消息！主人請慢用 🐾\n"]
-        for item in data["news"]:
+        for item in data["news"][:3]:
             lines.append(f"📌 {item['title']}\n🔗 {item['url']}\n({item['date']})")
         line_service.reply_text(reply_token, "\n\n".join(lines))
     except Exception as e:
