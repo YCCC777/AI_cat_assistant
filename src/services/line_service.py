@@ -186,14 +186,11 @@ class LineService:
         """
         發送帶有「喵～我懂了」按鈕的學習卡。
         """
-        text = f"【{chapter}】\n\n{content}\n\n加油喵！讀完點一下按鈕喔～🐾"
-        
-        # 確保文字不超過 160 字 (LINE 限制)
-        display_text = text if len(text) <= 160 else text[:157] + "..."
-        
+        card_text = f"📖【{chapter}】\n\n{content}"
+
         buttons_template = ButtonsTemplate(
             title="捏肉球時間 (學習卡)",
-            text=display_text,
+            text="讀完了嗎？點下方按鈕繼續喵～🐾",
             actions=[
                 PostbackAction(
                     label="喵～我懂了 (換下一張)",
@@ -202,7 +199,7 @@ class LineService:
                 )
             ]
         )
-        
+
         messages = []
         if countdown_days is not None:
             if countdown_days > 0:
@@ -212,6 +209,7 @@ class LineService:
             else:
                 countdown_text = f"⏰ 考試已過 {-countdown_days} 天，辛苦了喵！🐾"
             messages.append(TextMessage(text=countdown_text))
+        messages.append(TextMessage(text=card_text))
         messages.append(TemplateMessage(alt_text="捏肉球時間喵！", template=buttons_template))
 
         self.messaging_api.reply_message(
