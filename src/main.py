@@ -95,7 +95,7 @@ async def handle_text_message(event: MessageEvent):
         line_service.reply_text(reply_token, reply)
         return
 
-    if message_text in ["捏肉球", "餵罐罐", "罐罐", "讀書", "學習卡"]:
+    if message_text in ["捏肉球", "讀書", "學習卡"]:
         study_service.send_next_card(reply_token, user_id)
         return
 

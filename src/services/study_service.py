@@ -23,7 +23,7 @@ class StudyService:
             f"📖 目標：{progress['exam_name']}\n"
             f"⏳ 倒數：{self._calculate_countdown(progress['exam_date'])} 天\n"
             f"🍖 已讀：{progress['current_index']} 張學習卡\n\n"
-            f"點擊下方選單或輸入「餵罐罐」來讀書喵！"
+            f"點擊下方選單或輸入「捏肉球」來讀書喵！"
         )
 
     def get_setting_guide(self, user_id: str) -> str:
@@ -96,7 +96,7 @@ class StudyService:
         """
         progress = notion_service.get_user_progress(user_id)
         if not progress:
-            line_service.reply_text(reply_token, "喵？要先報名才能領罐罐（學習卡）喔！請輸入「報名」查看格式。")
+            line_service.reply_text(reply_token, "喵？要先設定考試目標才能捏肉球喔！請點選「陪讀設定」或輸入「陪讀設定」查看格式。")
             return
 
         current_index = progress["current_index"]
@@ -104,7 +104,7 @@ class StudyService:
         
         card = notion_service.get_learning_card(next_index)
         if not card:
-            line_service.reply_text(reply_token, "喵！恭喜您！目前的學習卡已經全部讀完了！本喵正在努力準備更多罐罐，請期待喔～🐾")
+            line_service.reply_text(reply_token, "喵！恭喜您把所有學習卡都捏完了！本喵正在努力準備更多內容，請期待喔～🐾")
             return
 
         countdown_days = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None

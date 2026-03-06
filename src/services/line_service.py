@@ -198,7 +198,7 @@ class LineService:
                 PostbackAction(
                     label="喵～我懂了 (換下一張)",
                     data=f"action=next_card&index={next_index}",
-                    display_text="喵～我懂了！再來一份罐罐！"
+                    display_text="喵～我懂了！再捏一球！"
                 )
             ]
         )
