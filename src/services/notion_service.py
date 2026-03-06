@@ -136,7 +136,7 @@ class NotionService:
             r = httpx.post(
                 f"https://api.notion.com/v1/databases/{self.card_db_id}/query",
                 headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
-                json={"filter": {"property": "Card_ID", "number": {"equals": int(card_index)}}},
+                json={"filter": {"property": "Card_ID", "title": {"equals": str(card_index)}}},
                 timeout=15,
             )
             if not r.is_success:
