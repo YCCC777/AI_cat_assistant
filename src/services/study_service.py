@@ -26,6 +26,30 @@ class StudyService:
             f"點擊下方選單或輸入「餵罐罐」來讀書喵！"
         )
 
+    def get_setting_guide(self, user_id: str) -> str:
+        """
+        顯示陪讀設定引導訊息。
+        """
+        progress = notion_service.get_user_progress(user_id)
+        if progress and progress.get("exam_name"):
+            current = (
+                f"目前本喵幫你追蹤的目標是【{progress['exam_name']}】，"
+                f"考試日期 {progress['exam_date']}，"
+                f"還有 {self._calculate_countdown(progress['exam_date'])} 天喵！\n\n"
+                f"想換個新目標嗎？"
+            )
+        else:
+            current = "喵～主人還沒有設定備考目標呢！讓本喵來幫你追蹤倒數和讀書進度吧！🐾"
+
+        return (
+            f"{current}\n\n"
+            f"📝 設定方式：\n"
+            f"輸入「報名 考試名稱 日期」\n\n"
+            f"範例：\n"
+            f"報名 iPAS AI應用規劃師 2026-05-20\n\n"
+            f"設定完成後，每次捏肉球領學習卡時，本喵都會順便提醒你還剩幾天喵！🐾"
+        )
+
     def register_exam(self, user_id: str, text: str):
         """
         解析報名資訊並存入 Notion。

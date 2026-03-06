@@ -85,6 +85,11 @@ async def handle_text_message(event: MessageEvent):
         return
 
     # 1. 陪讀模組指令
+    if message_text == "陪讀設定":
+        reply = study_service.get_setting_guide(user_id)
+        line_service.reply_text(reply_token, reply)
+        return
+
     if message_text.startswith("報名"):
         reply = study_service.register_exam(user_id, message_text)
         line_service.reply_text(reply_token, reply)

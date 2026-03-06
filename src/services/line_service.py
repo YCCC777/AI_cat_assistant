@@ -135,7 +135,7 @@ class LineService:
                     title="陪讀設定",
                     text="更改考試種類或設定考試日期喵！",
                     actions=[
-                        MessageAction(label="陪讀設定", text="報名")
+                        MessageAction(label="陪讀設定", text="陪讀設定")
                     ]
                 )
             ]
