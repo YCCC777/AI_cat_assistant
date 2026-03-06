@@ -141,12 +141,15 @@ class LineService:
             ]
         )
         
-        self.messaging_api.reply_message(
-            ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[TemplateMessage(alt_text="貓咪陪讀選單喵！", template=carousel_template)]
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TemplateMessage(alt_text="貓咪陪讀選單喵！", template=carousel_template)]
+                )
             )
-        )
+        except Exception as e:
+            logger.error(f"reply_study_carousel 失敗: {str(e)}")
 
     def reply_with_quick_reply(self, reply_token: str, text: str, options: list[tuple[str, str]]):
         """
