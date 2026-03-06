@@ -115,7 +115,7 @@ class LineService:
         carousel_template = CarouselTemplate(
             columns=[
                 CarouselColumn(
-                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_countdown.png",
+                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_countdown.png?v=3",
                     title="捏肉球",
                     text="領取學習卡，開始今天的知識補給喵！",
                     actions=[
@@ -123,7 +123,7 @@ class LineService:
                     ]
                 ),
                 CarouselColumn(
-                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_progress.png",
+                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_progress.png?v=3",
                     title="讀書進度",
                     text="查看目前讀書進度，看看累積了多少喵！",
                     actions=[
@@ -131,7 +131,7 @@ class LineService:
                     ]
                 ),
                 CarouselColumn(
-                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_setting.png",
+                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_setting.png?v=3",
                     title="陪讀設定",
                     text="更改考試種類或設定考試日期喵！",
                     actions=[
