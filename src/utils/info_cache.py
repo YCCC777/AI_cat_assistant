@@ -1,9 +1,12 @@
 import json
 import os
+import httpx
 from datetime import datetime, timedelta
 
-CACHE_FILE = "/tmp/ai_info_cache.json"
+CACHE_FILE = "/tmp/ipas_news_cache.json"
 CACHE_TTL_DAYS = 7
+IPAS_API = "https://www.ipas.org.tw/api/proxy/certification/AIAP/news/list"
+IPAS_NEWS_URL = "https://www.ipas.org.tw/certification/AIAP/news/{code}"
 
 
 def get_cached_info() -> dict | None:
@@ -20,10 +23,20 @@ def get_cached_info() -> dict | None:
         return None
 
 
-def save_cache(content: str):
-    data = {
-        "content": content,
-        "fetched_at": datetime.now().isoformat()
-    }
+def fetch_and_cache_ipas_news() -> dict:
+    r = httpx.get(IPAS_API, timeout=15)
+    r.raise_for_status()
+    api_data = r.json()
+    items = api_data["data"]["datas"]
+    news = [
+        {
+            "title": item["title"],
+            "url": IPAS_NEWS_URL.format(code=item["code"]),
+            "date": item["publish_date"],
+        }
+        for item in items
+    ]
+    data = {"news": news, "fetched_at": datetime.now().isoformat()}
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False)
+    return data

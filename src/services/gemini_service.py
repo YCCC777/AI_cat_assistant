@@ -70,33 +70,6 @@ class GeminiService:
             raise e
 
 
-    async def get_ai_exam_info(self) -> str:
-        """
-        使用 Google Search Grounding 搜尋台灣 AI 認證考試最新資訊。
-        """
-        from google.genai import types
-        prompt = """請搜尋台灣目前主要 AI 相關認證考試的最新資訊，包含：
-1. iPAS 人工智慧 - 最新考試梯次與報名期間
-2. TQC+ AI 相關認證 - 最新考試日程
-3. Google、AWS、Microsoft Azure 等國際 AI 認證在台灣的近期動態
-
-請用繁體中文條列式摘要，每項格式為：
-【考試名稱】
-- 報名／考試時間：
-- 重要資訊：
-- 官方連結：（若有）
-
-最多列出 5 項最重要的、近期（3個月內）有開放報名的考試。"""
-
-        response = await self.client.aio.models.generate_content(
-            model=settings.GEMINI_MODEL_NAME,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                tools=[types.Tool(google_search=types.GoogleSearch())]
-            )
-        )
-        return response.text.strip()
-
 
 # 單例模式實例
 gemini_service = GeminiService()

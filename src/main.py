@@ -11,6 +11,7 @@ from src.utils.config import settings
 from src.utils.deduplicator import deduplicator
 from src.utils.limiter import token_limiter
 from src.utils.user_limiter import user_limiter
+from datetime import datetime
 import logging
 import uvicorn
 
@@ -112,7 +113,7 @@ async def handle_text_message(event: MessageEvent):
         line_service.reply_with_quick_reply(
             reply_token,
             "喵～請問主人想看什麼資訊呢？🐾",
-            [("最新 AI 課程", "AI 課程"), ("考試網站資訊", "AI 考試資訊")]
+            [("最新 AI 課程", "AI 課程"), ("iPAS 最新消息", "AI 考試資訊")]
         )
         return
 
@@ -182,7 +183,6 @@ async def handle_text_message(event: MessageEvent):
 
 
 async def handle_ai_courses(reply_token: str):
-    from datetime import datetime
     events = calendar_service.get_upcoming_events(days=7)
     if not events:
         line_service.reply_text(reply_token, "喵～本喵翻遍行事曆了，未來 7 天暫時沒有排課耶！等好課出現本喵第一個通知喵～😸")
@@ -201,21 +201,18 @@ async def handle_ai_courses(reply_token: str):
 
 
 async def handle_ai_exam_info(reply_token: str):
-    from src.utils.info_cache import get_cached_info, save_cache
-    cached = get_cached_info()
-    if cached:
-        fetched_date = cached["fetched_at"][:10]
-        exam_text = f"📋 AI 考試資訊（更新於 {fetched_date}）\n\n{cached['content']}"
-        line_service.reply_text(reply_token, exam_text)
-    else:
-        try:
-            content = await gemini_service.get_ai_exam_info()
-            save_cache(content)
-            token_limiter.add_usage(2000)
-            line_service.reply_text(reply_token, f"📋 AI 考試資訊（剛剛更新）\n\n{content}")
-        except Exception as e:
-            logger.error(f"get_ai_exam_info 失敗: {e}")
-            line_service.reply_text(reply_token, "📋 考試資訊暫時無法取得，請稍後再試喵～")
+    from src.utils.info_cache import get_cached_info, fetch_and_cache_ipas_news
+    try:
+        data = get_cached_info() or fetch_and_cache_ipas_news()
+        fetched_dt = datetime.fromisoformat(data["fetched_at"])
+        date_str = f"{fetched_dt.year}年{fetched_dt.month:02d}月{fetched_dt.day:02d}日"
+        lines = [f"喵～以下是本喵 {date_str} 趁大家不注意、悄悄出任務爬回來的 iPAS 最新消息！主人請慢用 🐾\n"]
+        for item in data["news"]:
+            lines.append(f"📌 {item['title']}\n🔗 {item['url']}\n({item['date']})")
+        line_service.reply_text(reply_token, "\n\n".join(lines))
+    except Exception as e:
+        logger.error(f"handle_ai_exam_info 失敗: {e}")
+        line_service.reply_text(reply_token, "喵嗚...本喵出任務失敗了，iPAS 官網好像在睡覺，請稍後再試喵～🐾")
 
 
 async def process_and_reply(reply_token: str, message_text: str, user_id: str):
