@@ -136,9 +136,11 @@ class NotionService:
             r = httpx.post(
                 f"https://api.notion.com/v1/databases/{self.card_db_id}/query",
                 headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
-                json={"filter": {"property": "Card_ID", "number": {"equals": card_index}}},
+                json={"filter": {"property": "Card_ID", "number": {"equals": int(card_index)}}},
                 timeout=15,
             )
+            if not r.is_success:
+                logger.error(f"獲取學習卡 400 詳情: {r.text}")
             r.raise_for_status()
             results = r.json().get("results")
             if results:
