@@ -64,12 +64,10 @@ class NotionService:
             return None
 
         try:
-            response = self.notion.databases.query(
-                database_id=self.user_db_id,
-                filter={
-                    "property": "User_ID",
-                    "title": {"equals": user_id}
-                }
+            response = self.notion.request(
+                path=f"databases/{self.user_db_id}/query",
+                method="POST",
+                body={"filter": {"property": "User_ID", "title": {"equals": user_id}}}
             )
             results = response.get("results")
             if results:
@@ -130,12 +128,10 @@ class NotionService:
             return None
 
         try:
-            response = self.notion.databases.query(
-                database_id=self.card_db_id,
-                filter={
-                    "property": "Card_ID",
-                    "number": {"equals": card_index}
-                }
+            response = self.notion.request(
+                path=f"databases/{self.card_db_id}/query",
+                method="POST",
+                body={"filter": {"property": "Card_ID", "number": {"equals": card_index}}}
             )
             results = response.get("results")
             if results:
