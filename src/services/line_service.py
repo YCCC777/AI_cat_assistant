@@ -12,6 +12,8 @@ from linebot.v3.messaging import (
     CarouselTemplate,
     CarouselColumn,
     MessageAction,
+    QuickReply,
+    QuickReplyItem,
     RichMenuRequest,
     RichMenuArea,
     RichMenuSize,
@@ -145,6 +147,25 @@ class LineService:
                 messages=[TemplateMessage(alt_text="貓咪陪讀選單喵！", template=carousel_template)]
             )
         )
+
+    def reply_with_quick_reply(self, reply_token: str, text: str, options: list[tuple[str, str]]):
+        """
+        回傳帶有 Quick Reply 按鈕的訊息。
+        options: [(label, text_to_send), ...]
+        """
+        quick_reply_items = [
+            QuickReplyItem(action=MessageAction(label=label, text=msg))
+            for label, msg in options
+        ]
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=text, quick_reply=QuickReply(items=quick_reply_items))]
+                )
+            )
+        except Exception as e:
+            logger.error(f"reply_with_quick_reply 失敗: {str(e)}")
 
     def reply_messages(self, reply_token: str, texts: list):
         """

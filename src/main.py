@@ -109,7 +109,19 @@ async def handle_text_message(event: MessageEvent):
 
     # 2. 固定回覆指令
     if message_text == "AI 資訊":
-        await handle_ai_info(reply_token)
+        line_service.reply_with_quick_reply(
+            reply_token,
+            "喵～請問主人想看什麼資訊呢？🐾",
+            [("最新 AI 課程", "AI 課程"), ("考試網站資訊", "AI 考試資訊")]
+        )
+        return
+
+    if message_text == "AI 課程":
+        await handle_ai_courses(reply_token)
+        return
+
+    if message_text == "AI 考試資訊":
+        await handle_ai_exam_info(reply_token)
         return
 
     if message_text == "AI 課程查詢":
@@ -169,43 +181,41 @@ async def handle_text_message(event: MessageEvent):
     await process_and_reply(reply_token, message_text, user_id)
 
 
-async def handle_ai_info(reply_token: str):
-    from src.utils.info_cache import get_cached_info, save_cache
+async def handle_ai_courses(reply_token: str):
     from datetime import datetime
-
-    # Part 1: 7天課程
     events = calendar_service.get_upcoming_events(days=7)
     if not events:
-        course_text = "📅 未來 7 天暫無排課喵～"
-    else:
-        lines = [f"📅 未來 7 天共 {len(events)} 堂課："]
-        for e in events:
-            name = e.get("summary", "未知課程").replace("📚 ", "")
-            start = e.get("start", {}).get("dateTime") or e.get("start", {}).get("date", "")
-            try:
-                dt = datetime.fromisoformat(start)
-                time_str = f"{dt.month}/{dt.day} {dt.strftime('%H:%M')}"
-            except Exception:
-                time_str = start[:16].replace("T", " ")
-            lines.append(f"• {name}（{time_str}）")
-        course_text = "\n".join(lines)
+        line_service.reply_text(reply_token, "喵～本喵翻遍行事曆了，未來 7 天暫時沒有排課耶！等好課出現本喵第一個通知喵～😸")
+        return
+    lines = [f"📅 未來 7 天共 {len(events)} 堂課："]
+    for e in events:
+        name = e.get("summary", "未知課程").replace("📚 ", "")
+        start = e.get("start", {}).get("dateTime") or e.get("start", {}).get("date", "")
+        try:
+            dt = datetime.fromisoformat(start)
+            time_str = f"{dt.month}/{dt.day} {dt.strftime('%H:%M')}"
+        except Exception:
+            time_str = start[:16].replace("T", " ")
+        lines.append(f"• {name}（{time_str}）")
+    line_service.reply_text(reply_token, "\n".join(lines))
 
-    # Part 2: 考試資訊（快取，7天更新一次）
+
+async def handle_ai_exam_info(reply_token: str):
+    from src.utils.info_cache import get_cached_info, save_cache
     cached = get_cached_info()
     if cached:
         fetched_date = cached["fetched_at"][:10]
         exam_text = f"📋 AI 考試資訊（更新於 {fetched_date}）\n\n{cached['content']}"
+        line_service.reply_text(reply_token, exam_text)
     else:
         try:
             content = await gemini_service.get_ai_exam_info()
             save_cache(content)
             token_limiter.add_usage(2000)
-            exam_text = f"📋 AI 考試資訊（剛剛更新）\n\n{content}"
+            line_service.reply_text(reply_token, f"📋 AI 考試資訊（剛剛更新）\n\n{content}")
         except Exception as e:
             logger.error(f"get_ai_exam_info 失敗: {e}")
-            exam_text = "📋 考試資訊暫時無法取得，請稍後再試喵～"
-
-    line_service.reply_messages(reply_token, [course_text, exam_text])
+            line_service.reply_text(reply_token, "📋 考試資訊暫時無法取得，請稍後再試喵～")
 
 
 async def process_and_reply(reply_token: str, message_text: str, user_id: str):
