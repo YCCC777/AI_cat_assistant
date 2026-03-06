@@ -146,7 +146,19 @@ class LineService:
             )
         )
 
-    def reply_learning_card(self, reply_token: str, chapter: str, content: str, next_index: int):
+    def reply_messages(self, reply_token: str, texts: list):
+        """
+        一次回傳多則文字訊息（最多 5 則）。
+        """
+        messages = [TextMessage(text=t) for t in texts[:5]]
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=messages)
+            )
+        except Exception as e:
+            logger.error(f"reply_messages 失敗: {str(e)}")
+
+    def reply_learning_card(self, reply_token: str, chapter: str, content: str, next_index: int, countdown_days: int | None = None):
         """
         發送帶有「喵～我懂了」按鈕的學習卡。
         """
@@ -167,11 +179,19 @@ class LineService:
             ]
         )
         
+        messages = []
+        if countdown_days is not None:
+            if countdown_days > 0:
+                countdown_text = f"⏰ 距離考試還有 {countdown_days} 天，加油喵！🐾"
+            elif countdown_days == 0:
+                countdown_text = "⏰ 今天就是考試日！全力以赴喵！🐾🔥"
+            else:
+                countdown_text = f"⏰ 考試已過 {-countdown_days} 天，辛苦了喵！🐾"
+            messages.append(TextMessage(text=countdown_text))
+        messages.append(TemplateMessage(alt_text="捏肉球時間喵！", template=buttons_template))
+
         self.messaging_api.reply_message(
-            ReplyMessageRequest(
-                reply_token=reply_token,
-                messages=[TemplateMessage(alt_text="餵罐罐時間喵！", template=buttons_template)]
-            )
+            ReplyMessageRequest(reply_token=reply_token, messages=messages)
         )
 
     def push_text(self, to_user_id: str, text: str):

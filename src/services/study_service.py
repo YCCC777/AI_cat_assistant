@@ -75,7 +75,8 @@ class StudyService:
             line_service.reply_text(reply_token, "喵！恭喜您！目前的學習卡已經全部讀完了！本喵正在努力準備更多罐罐，請期待喔～🐾")
             return
 
-        line_service.reply_learning_card(reply_token, card["chapter"], card["content"], next_index)
+        countdown_days = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
+        line_service.reply_learning_card(reply_token, card["chapter"], card["content"], next_index, countdown_days)
 
     def handle_next_card_click(self, reply_token: str, user_id: str, finished_index: int):
         """
