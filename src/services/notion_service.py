@@ -1,9 +1,12 @@
 from notion_client import Client
+import httpx
 import logging
 from src.utils.config import settings
 from src.models.course import CourseInfo
 
 logger = logging.getLogger(__name__)
+
+NOTION_VERSION = "2022-06-28"
 
 class NotionService:
     """
@@ -64,12 +67,14 @@ class NotionService:
             return None
 
         try:
-            response = self.notion.request(
-                path=f"databases/{self.user_db_id}/query",
-                method="POST",
-                body={"filter": {"property": "User_ID", "title": {"equals": user_id}}}
+            r = httpx.post(
+                f"https://api.notion.com/v1/databases/{self.user_db_id}/query",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={"filter": {"property": "User_ID", "title": {"equals": user_id}}},
+                timeout=15,
             )
-            results = response.get("results")
+            r.raise_for_status()
+            results = r.json().get("results")
             if results:
                 props = results[0]["properties"]
                 return {
@@ -128,12 +133,14 @@ class NotionService:
             return None
 
         try:
-            response = self.notion.request(
-                path=f"databases/{self.card_db_id}/query",
-                method="POST",
-                body={"filter": {"property": "Card_ID", "number": {"equals": card_index}}}
+            r = httpx.post(
+                f"https://api.notion.com/v1/databases/{self.card_db_id}/query",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={"filter": {"property": "Card_ID", "number": {"equals": card_index}}},
+                timeout=15,
             )
-            results = response.get("results")
+            r.raise_for_status()
+            results = r.json().get("results")
             if results:
                 props = results[0]["properties"]
                 return {
