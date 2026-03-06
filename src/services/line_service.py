@@ -113,19 +113,11 @@ class LineService:
         carousel_template = CarouselTemplate(
             columns=[
                 CarouselColumn(
-                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_learning.png",
-                    title="餵罐罐",
-                    text="領取學習卡，開始今天的知識補給喵！",
-                    actions=[
-                        MessageAction(label="領取學習卡", text="餵罐罐")
-                    ]
-                ),
-                CarouselColumn(
                     thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_countdown.png",
                     title="捏肉球",
-                    text="讀書打卡，記錄今天的學習成果喵！",
+                    text="領取學習卡，開始今天的知識補給喵！",
                     actions=[
-                        MessageAction(label="讀書打卡", text="捏肉球")
+                        MessageAction(label="捏肉球領學習卡", text="捏肉球")
                     ]
                 ),
                 CarouselColumn(
@@ -164,7 +156,7 @@ class LineService:
         display_text = text if len(text) <= 160 else text[:157] + "..."
         
         buttons_template = ButtonsTemplate(
-            title="罐罐時間 (學習卡)",
+            title="捏肉球時間 (學習卡)",
             text=display_text,
             actions=[
                 PostbackAction(

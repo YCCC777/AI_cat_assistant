@@ -89,11 +89,11 @@ async def handle_text_message(event: MessageEvent):
         line_service.reply_text(reply_token, reply)
         return
 
-    if message_text in ["餵罐罐", "罐罐", "讀書", "學習卡"]:
+    if message_text in ["捏肉球", "餵罐罐", "罐罐", "讀書", "學習卡"]:
         study_service.send_next_card(reply_token, user_id)
         return
 
-    if message_text in ["捏肉球", "倒數", "考試"]:
+    if message_text in ["倒數", "考試"]:
         reply = study_service.get_countdown_msg(user_id)
         line_service.reply_text(reply_token, reply)
         return
