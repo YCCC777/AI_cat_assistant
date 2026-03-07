@@ -11,6 +11,7 @@ from src.utils.config import settings
 from src.utils.deduplicator import deduplicator
 from src.utils.limiter import token_limiter
 from src.utils.user_limiter import user_limiter
+from src.utils.input_validator import validate_message, sanitize_url
 from datetime import datetime
 import logging
 import uvicorn
@@ -185,22 +186,32 @@ async def handle_text_message(event: MessageEvent):
             line_service.reply_text(reply_token, "喵嗚...選單更新失敗了，請檢查伺服器日誌。")
         return
 
-    # 4. 重複訊息過濾
+    # 4. 安全性驗證（短網址 / Prompt Injection）
+    is_valid, reject_reason = validate_message(message_text)
+    if not is_valid:
+        if reject_reason == "short_url":
+            line_service.reply_text(reply_token, "喵！這則訊息含有短網址，本喵不知道它會跑去哪裡，為了主人的安全先不記囉～🐾")
+        else:
+            line_service.reply_text(reply_token, "喵？這則訊息本喵看不太懂，沒辦法幫忙記下來喵～🐾")
+        logger.warning(f"訊息被安全過濾 reason={reject_reason} user={user_id[:8]}")
+        return
+
+    # 5. 重複訊息過濾
     if deduplicator.is_duplicate(message_text):
         line_service.reply_text(reply_token, "喵？這則訊息本喵好像已經記過囉！重複的就不再記一次了喵～🐾")
         return
 
-    # 5. Token 額度檢查
+    # 6. Token 額度檢查
     if token_limiter.is_limit_exceeded():
         line_service.reply_text(reply_token, "喵～不好意思，本喵今天的額度用完了，要先去睡覺了捏！明天再來吧喵～😴")
         return
 
-    # 6. 使用者個人限額
+    # 7. 使用者個人限額
     if user_limiter.is_limit_exceeded(user_id):
         line_service.reply_text(reply_token, f"喵～主人的群友太熱情了！但您今天已經記了 {settings.USER_DAILY_LIMIT} 場課程，本喵的手手快抽筋了喵！明天再幫您記唷！🐾")
         return
 
-    # 7. AI 解析與寫入
+    # 8. AI 解析與寫入
     await process_and_reply(reply_token, message_text, user_id)
 
 
@@ -251,13 +262,17 @@ async def process_and_reply(reply_token: str, message_text: str, user_id: str):
                 reply_msgs.append(f"📚 {course_info.name or '未知課程'}: 喵？這看起來不像 AI 課程資訊耶...是不是被本喵的魅力給迷倒輸入錯誤呢？")
                 continue
 
+            # L3: 寫入前 sanitize URL（短網址或非 allowlist 一律清除）
+            course_info.location_url = sanitize_url(course_info.location_url)
+
             calendar_service.add_event(course_info)
             notion_service.add_course(course_info)
 
+            url_display = course_info.location_url or "（連結不符安全規則，已移除）"
             reply_msgs.append(
                 f"📚 {course_info.name}\n"
                 f"⏰ {course_info.date_time}\n"
-                f"🔗 {course_info.location_url or '無連結'}"
+                f"🔗 {url_display}"
             )
 
         final_msg = "喵～記下來囉！🐾\n\n" + "\n---\n".join(reply_msgs)
