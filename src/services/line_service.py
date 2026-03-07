@@ -196,6 +196,11 @@ class LineService:
                     label="喵～我懂了 (換下一張)",
                     data=f"action=next_card&index={next_index}",
                     display_text="喵～我懂了！再捏一球！"
+                ),
+                PostbackAction(
+                    label="⚠️ 回報卡片問題",
+                    data=f"action=report_card&index={next_index}",
+                    display_text="我想回報這張學習卡的問題"
                 )
             ]
         )

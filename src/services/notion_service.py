@@ -19,6 +19,7 @@ class NotionService:
             self.course_db_id = settings.NOTION_DATABASE_ID
             self.user_db_id = settings.NOTION_USER_PROGRESS_DB_ID
             self.card_db_id = settings.NOTION_LEARNING_CARD_DB_ID
+            self.report_db_id = settings.NOTION_REPORT_DB_ID
         else:
             self.notion = None
             logger.warning("Notion Token 缺失，跳過 Notion 功能。")
@@ -153,6 +154,31 @@ class NotionService:
         except Exception as e:
             logger.error(f"獲取學習卡失敗: {str(e)}")
             return None
+
+    def create_card_report(self, card_id: int, reporter_id: str, content: str) -> bool:
+        if not self.notion or not self.report_db_id:
+            return False
+        try:
+            r = httpx.post(
+                f"https://api.notion.com/v1/pages",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={
+                    "parent": {"database_id": self.report_db_id},
+                    "properties": {
+                        "Card_ID": {"title": [{"text": {"content": str(card_id)}}]},
+                        "Reporter_ID": {"rich_text": [{"text": {"content": reporter_id}}]},
+                        "Content": {"rich_text": [{"text": {"content": content}}]},
+                        "Status": {"select": {"name": "待處理"}},
+                    }
+                },
+                timeout=15,
+            )
+            r.raise_for_status()
+            return True
+        except Exception as e:
+            logger.error(f"建立錯誤回報失敗: {str(e)}")
+            return False
+
 
 # 單例模式實例
 notion_service = NotionService()

@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 parser = WebhookParser(settings.LINE_CHANNEL_SECRET)
 
+# 等待使用者輸入回報內容的狀態 { user_id: card_index }
+pending_reports: dict[str, int] = {}
+
 
 @app.get("/")
 @app.get("/health")
@@ -68,6 +71,13 @@ async def handle_postback(event: PostbackEvent):
         if params.get("action") == "next_card":
             finished_index = int(params.get("index", 0))
             study_service.handle_next_card_click(reply_token, user_id, finished_index)
+        elif params.get("action") == "report_card":
+            card_index = int(params.get("index", 0))
+            pending_reports[user_id] = card_index
+            line_service.reply_text(
+                reply_token,
+                f"喵？主人覺得第 {card_index} 張學習卡哪裡有問題呢？\n請直接輸入您的意見（例如：答案有誤、內容看不懂），本喵會轉達給創作者！🐾"
+            )
     except Exception as e:
         logger.error(f"Postback error: {str(e)}")
 
@@ -84,7 +94,18 @@ async def handle_text_message(event: MessageEvent):
         line_service.reply_text(reply_token, "喵～主人的手速太快了，本喵快跟不上了！請休息 3 秒鐘再傳訊息給我喵～🐾")
         return
 
-    # 1. 陪讀模組指令
+    # 1. 回報狀態攔截（優先於所有指令）
+    if user_id in pending_reports:
+        card_index = pending_reports.pop(user_id)
+        success = notion_service.create_card_report(card_index, user_id, message_text)
+        if success:
+            line_service.reply_text(reply_token, "已向本喵的創作者回報這張學習卡，感謝主人協助讓本喵變得更好！🐾")
+            line_service.push_text(settings.ADMIN_LINE_USER_ID, f"⚠️ 學習卡回報\n卡片編號：#{card_index}\n回報者：{user_id}\n內容：{message_text}")
+        else:
+            line_service.reply_text(reply_token, "喵嗚...回報時出了點問題，請稍後再試或聯絡管理員喵～🐾")
+        return
+
+    # 2. 陪讀模組指令
     if message_text == "陪讀設定":
         reply = study_service.get_setting_guide(user_id)
         line_service.reply_text(reply_token, reply)
