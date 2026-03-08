@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from src.services.notion_service import notion_service
 from src.services.line_service import line_service
+from src.utils.exam_dates import get_exam_dates, get_all_exam_names
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ class StudyService:
         """
         解析報名資訊並存入 Notion。
         格式：報名 [考試名稱] [日期]（日期一定是最後一格）
+        僅接受 iPAS AI應用規劃師（初級）。
         """
         try:
             parts = text.replace("報名", "").strip().split()
@@ -67,19 +69,26 @@ class StudyService:
             # 驗證日期格式
             datetime.strptime(exam_date, "%Y-%m-%d")
 
-            # iPAS 必須註明初級或中級
-            if "iPAS" in exam_name or "應用規劃師" in exam_name:
-                if "中級" in exam_name:
-                    return "喵嗚...本喵目前只支援 iPAS AI應用規劃師（初級）的陪讀計畫，中級還在努力準備中，請主人稍待喵！🐾"
-                if "初級" not in exam_name:
-                    return "喵～iPAS AI應用規劃師有分初級和中級喔！請主人在考試名稱中註明，例如：\n報名 iPAS AI應用規劃師（初級） 2026-05-20"
-            
+            # 僅接受支援的考試名稱
+            supported = get_all_exam_names()
+            is_supported = any(name in exam_name for name in supported)
+            if not is_supported:
+                return (
+                    "喵嗚...本喵目前只支援 iPAS AI應用規劃師（初級）的陪讀計畫喔！🐾\n"
+                    "請點選「陪讀設定」使用選單來報名，或輸入正確考試名稱喵～"
+                )
+
+            if "中級" in exam_name:
+                return "喵嗚...本喵目前只支援 iPAS AI應用規劃師（初級），中級還在努力準備中，請主人稍待喵！🐾"
+            if "初級" not in exam_name:
+                return "喵～請在考試名稱中註明「初級」或「中級」，例如：\n報名 iPAS AI應用規劃師（初級） 2026-05-20"
+
             success = notion_service.update_user_progress(user_id, {
                 "exam_name": exam_name,
                 "exam_date": exam_date,
                 "current_index": 0
             })
-            
+
             if success:
                 return f"喵～收到！已經幫您記好目標「{exam_name}」了，考試日期是 {exam_date}。本喵會陪你一起努力的！🐾"
             else:
@@ -89,6 +98,52 @@ class StudyService:
         except Exception as e:
             logger.error(f"報名失敗: {str(e)}")
             return "喵嗚...報名出錯了，請找管理員救救本喵🐾"
+
+    def register_exam_direct(self, user_id: str, exam_name: str, exam_date: str) -> str:
+        """
+        直接用考試名稱 + 日期完成報名（供 Postback 兩層選單使用）。
+        """
+        try:
+            success = notion_service.update_user_progress(user_id, {
+                "exam_name": exam_name,
+                "exam_date": exam_date,
+                "current_index": 0
+            })
+            if success:
+                return f"喵～收到！已幫您記好目標「{exam_name}」，考試日期 {exam_date}。本喵會陪你一起努力的！🐾"
+            else:
+                return "喵嗚...存入進度時出了一點問題，請稍後再試喵～"
+        except Exception as e:
+            logger.error(f"register_exam_direct 失敗: {str(e)}")
+            return "喵嗚...報名出錯了，請找管理員救救本喵🐾"
+
+    def get_exam_type_options(self) -> list[tuple[str, str, str]]:
+        """
+        回傳考試種類的 Postback Quick Reply 選項。
+        格式：[(label, postback_data, display_text), ...]
+        """
+        options = []
+        for exam_name in get_all_exam_names():
+            # label 限 20 字，用縮寫
+            label = "iPAS 初級"
+            data = f"action=show_exam_dates&exam={exam_name}"
+            display = f"我要報名 {exam_name}"
+            options.append((label, data, display))
+        return options
+
+    def get_exam_date_options(self, exam_name: str) -> list[tuple[str, str, str]]:
+        """
+        回傳指定考試的日期 Postback Quick Reply 選項。
+        格式：[(label, postback_data, display_text), ...]
+        """
+        dates = get_exam_dates(exam_name)
+        options = []
+        for label, iso_date in dates:
+            data = f"action=register_exam&exam={exam_name}&date={iso_date}"
+            display = f"報名 {label}"
+            # Quick Reply label 最多 20 字
+            options.append((label[:20], data, display))
+        return options
 
     def send_next_card(self, reply_token: str, user_id: str):
         """

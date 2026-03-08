@@ -68,17 +68,39 @@ async def handle_postback(event: PostbackEvent):
         return
 
     try:
-        params = dict(param.split('=') for param in data.split('&'))
-        if params.get("action") == "next_card":
+        params = dict(param.split('=', 1) for param in data.split('&'))
+        action = params.get("action")
+
+        if action == "next_card":
             finished_index = int(params.get("index", 0))
             study_service.handle_next_card_click(reply_token, user_id, finished_index)
-        elif params.get("action") == "report_card":
+
+        elif action == "report_card":
             card_index = int(params.get("index", 0))
             pending_reports[user_id] = card_index
             line_service.reply_text(
                 reply_token,
                 f"喵？主人覺得第 {card_index} 張學習卡哪裡有問題呢？\n請直接輸入您的意見（例如：答案有誤、內容看不懂），本喵會轉達給創作者！🐾"
             )
+
+        elif action == "show_exam_dates":
+            exam_name = params.get("exam", "")
+            date_options = study_service.get_exam_date_options(exam_name)
+            if date_options:
+                line_service.reply_with_quick_reply_postback(
+                    reply_token,
+                    f"喵～請選擇您要報名的【{exam_name}】場次：",
+                    date_options
+                )
+            else:
+                line_service.reply_text(reply_token, "喵嗚...找不到考試日期資訊，請稍後再試或聯絡管理員喵～🐾")
+
+        elif action == "register_exam":
+            exam_name = params.get("exam", "")
+            exam_date = params.get("date", "")
+            reply = study_service.register_exam_direct(user_id, exam_name, exam_date)
+            line_service.reply_text(reply_token, reply)
+
     except Exception as e:
         logger.error(f"Postback error: {str(e)}")
 
@@ -107,12 +129,24 @@ async def handle_text_message(event: MessageEvent):
         return
 
     # 2. 陪讀模組指令
-    if message_text == "陪讀設定":
-        reply = study_service.get_setting_guide(user_id)
-        line_service.reply_text(reply_token, reply)
+    if message_text in ["陪讀設定", "報名", "陪讀報名"]:
+        # 兩層選單：第一層選考試種類
+        progress = notion_service.get_user_progress(user_id)
+        if progress and progress.get("exam_name"):
+            prefix = (
+                f"目前本喵幫你追蹤的目標是【{progress['exam_name']}】，"
+                f"考試日期 {progress['exam_date']}，"
+                f"還有 {study_service._calculate_countdown(progress['exam_date'])} 天喵！\n\n"
+                f"想換個新目標嗎？請選擇考試種類："
+            )
+        else:
+            prefix = "喵～讓本喵幫你追蹤倒數和讀書進度吧！請選擇考試種類："
+        exam_options = study_service.get_exam_type_options()
+        line_service.reply_with_quick_reply_postback(reply_token, prefix, exam_options)
         return
 
     if message_text.startswith("報名"):
+        # 保留文字格式相容，但嚴格驗證
         reply = study_service.register_exam(user_id, message_text)
         line_service.reply_text(reply_token, reply)
         return
@@ -259,7 +293,7 @@ async def process_and_reply(reply_token: str, message_text: str, user_id: str):
         for course_info in courses:
             if not course_info.is_course:
                 logger.info(f"AI 判定非課程: {course_info.reason}")
-                reply_msgs.append(f"📚 {course_info.name or '未知課程'}: 喵？這看起來不像 AI 課程資訊耶...是不是被本喵的魅力給迷倒輸入錯誤呢？")
+                reply_msgs.append("喵？這看起來不像 AI 課程資訊耶...是不是被本喵的魅力給迷倒輸入錯誤呢？")
                 continue
 
             # L3: 寫入前 sanitize URL（短網址或非 allowlist 一律清除）

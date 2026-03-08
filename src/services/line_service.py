@@ -170,6 +170,26 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_with_quick_reply 失敗: {str(e)}")
 
+    def reply_with_quick_reply_postback(self, reply_token: str, text: str, options: list[tuple[str, str, str]]):
+        """
+        回傳帶有 Postback Quick Reply 按鈕的訊息。
+        options: [(label, postback_data, display_text), ...]
+        label 最多 20 字，display_text 為點擊後顯示在聊天室的文字。
+        """
+        quick_reply_items = [
+            QuickReplyItem(action=PostbackAction(label=label, data=data, display_text=display))
+            for label, data, display in options
+        ]
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=text, quick_reply=QuickReply(items=quick_reply_items))]
+                )
+            )
+        except Exception as e:
+            logger.error(f"reply_with_quick_reply_postback 失敗: {str(e)}")
+
     def reply_messages(self, reply_token: str, texts: list):
         """
         一次回傳多則文字訊息（最多 5 則）。
