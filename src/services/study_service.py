@@ -124,8 +124,8 @@ class StudyService:
         """
         options = []
         for exam_name in get_all_exam_names():
-            # label 限 20 字，用縮寫
-            label = "iPAS 初級"
+            # label 限 20 字
+            label = "iPAS AI應用規劃師(初級)"
             data = f"action=show_exam_dates&exam={exam_name}"
             display = f"我要報名 {exam_name}"
             options.append((label, data, display))
