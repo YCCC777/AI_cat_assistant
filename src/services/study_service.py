@@ -19,11 +19,18 @@ class StudyService:
         if not progress:
             return "喵～看來您還沒加入陪讀計畫呢！\n請輸入「報名 [考試名稱] [日期(YYYY-MM-DD)]」來啟動喵！\n例如：報名 iPAS AI 2026-05-20"
         
+        understood = progress.get("understood_count", 0)
+        not_sure = progress.get("not_sure_count", 0)
+        total_answered = understood + not_sure
+        accuracy = int(understood / total_answered * 100) if total_answered > 0 else 0
         return (
             f"🐾 您的陪讀進度 🐾\n"
             f"📖 目標：{progress['exam_name']}\n"
             f"⏳ 倒數：{self._calculate_countdown(progress['exam_date'])} 天\n"
-            f"🍖 已讀：{progress['current_index']} 張學習卡\n\n"
+            f"🍖 已讀：{progress['current_index']} 張學習卡\n"
+            f"✅ 已懂：{understood} 張\n"
+            f"😅 待複習：{not_sure} 張\n"
+            f"📊 答對率：{accuracy}%\n\n"
             f"點擊下方選單或輸入「捏肉球」來讀書喵！"
         )
 
@@ -177,15 +184,16 @@ class StudyService:
 
     def handle_card_understood(self, reply_token: str, user_id: str, card_index: int):
         """
-        使用者點「✅ 懂了」：更新進度並發送下一張出題訊息。
+        使用者點「✅ 懂了」：更新進度、累計懂了次數，並發送下一張出題訊息。
         """
-        notion_service.update_user_progress(user_id, {"current_index": card_index})
+        notion_service.update_user_progress(user_id, {"current_index": card_index, "increment_understood": True})
         self.send_next_card(reply_token, user_id)
 
-    def handle_card_not_sure(self, reply_token: str):
+    def handle_card_not_sure(self, reply_token: str, user_id: str):
         """
-        使用者點「😅 還不熟」：不推進進度，給予鼓勵，下次捏肉球還會看到同一張。
+        使用者點「😅 還不熟」：不推進進度、累計待複習次數，給予鼓勵。
         """
+        notion_service.update_user_progress(user_id, {"increment_not_sure": True})
         line_service.reply_text(
             reply_token,
             "沒關係喵！本喵幫你記下來了 📝\n下次捏肉球還會出現這題，繼續加油！🐾"

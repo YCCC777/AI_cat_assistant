@@ -100,7 +100,9 @@ class NotionService:
                     "page_id": results[0]["id"],
                     "exam_name": props["Exam_Name"]["rich_text"][0]["text"]["content"] if props["Exam_Name"]["rich_text"] else "未設定",
                     "exam_date": props["Exam_Date"]["date"]["start"] if props["Exam_Date"]["date"] else None,
-                    "current_index": props["Current_Card_Index"]["number"] or 0
+                    "current_index": props["Current_Card_Index"]["number"] or 0,
+                    "understood_count": int(props["Understood_Count"]["number"] or 0) if props.get("Understood_Count") and props["Understood_Count"]["number"] is not None else 0,
+                    "not_sure_count": int(props["Not_Sure_Count"]["number"] or 0) if props.get("Not_Sure_Count") and props["Not_Sure_Count"]["number"] is not None else 0,
                 }
             return None
         except Exception as e:
@@ -126,7 +128,13 @@ class NotionService:
                 properties["Exam_Date"] = {"date": {"start": data["exam_date"]}}
             if "current_index" in data:
                 properties["Current_Card_Index"] = {"number": data["current_index"]}
-            
+            if "increment_understood" in data:
+                cur = progress["understood_count"] if progress else 0
+                properties["Understood_Count"] = {"number": cur + 1}
+            if "increment_not_sure" in data:
+                cur = progress["not_sure_count"] if progress else 0
+                properties["Not_Sure_Count"] = {"number": cur + 1}
+
             # 更新最後互動時間
             from datetime import datetime
             properties["Last_Interaction"] = {"date": {"start": datetime.now().isoformat()}}

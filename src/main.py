@@ -85,7 +85,7 @@ async def handle_postback(event: PostbackEvent):
             study_service.handle_card_understood(reply_token, user_id, card_index)
 
         elif action == "card_not_sure":
-            study_service.handle_card_not_sure(reply_token)
+            study_service.handle_card_not_sure(reply_token, user_id)
 
         elif action == "report_card":
             card_index = int(params.get("index", 0))
