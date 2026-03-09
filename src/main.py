@@ -88,7 +88,8 @@ async def handle_postback(event: PostbackEvent):
 
         elif action == "card_not_sure":
             card_index = int(params.get("index", 0))
-            study_service.handle_card_not_sure(reply_token, user_id, card_index)
+            is_retry = params.get("is_retry", "0") == "1"
+            study_service.handle_card_not_sure(reply_token, user_id, card_index, is_retry)
 
         elif action == "report_card":
             card_index = int(params.get("index", 0))

@@ -153,18 +153,19 @@ class StudyService:
             options.append((label[:20], data, display))
         return options
 
-    def send_next_card(self, reply_token: str, user_id: str):
+    def send_next_card(self, reply_token: str, user_id: str, skip_retry: bool = False):
         """
         翻牌第一步：優先發送複習佇列中的卡，佇列空時才推進到下一張新卡。
+        skip_retry=True 時強制走新卡邏輯（current_index + 1），忽略 retry 佇列。
         """
         progress = notion_service.get_user_progress(user_id)
         if not progress:
             line_service.reply_text(reply_token, "喵？要先設定考試目標才能捏肉球喔！請點選「陪讀設定」或輸入「陪讀設定」查看格式。")
             return
 
-        # P3：優先取複習佇列
+        # P3：優先取複習佇列（除非明確要求跳過）
         retry_indices = progress.get("retry_indices", [])
-        if retry_indices:
+        if retry_indices and not skip_retry:
             card_index = retry_indices[0]
             is_retry = True
         else:
@@ -202,12 +203,17 @@ class StudyService:
             notion_service.update_user_progress(user_id, {"current_index": card_index, "increment_understood": True})
         self.send_next_card(reply_token, user_id)
 
-    def handle_card_not_sure(self, reply_token: str, user_id: str, card_index: int):
+    def handle_card_not_sure(self, reply_token: str, user_id: str, card_index: int, is_retry: bool = False):
         """
-        使用者點「😅 還不熟」：加入 retry_indices，累計待複習次數，立即跳下一張。
+        使用者點「😅 還不熟」：加入 retry_indices，累計待複習次數，立即跳下一張新卡。
+        - 新卡（is_retry=False）：同步更新 current_index，避免 send_next_card 又取到同一張
+        - 複習卡（is_retry=True）：不動 current_index，卡片留在 retry 佇列等下次
         """
-        notion_service.update_user_progress(user_id, {"add_retry": card_index, "increment_not_sure": True})
-        self.send_next_card(reply_token, user_id)
+        updates = {"add_retry": card_index, "increment_not_sure": True}
+        if not is_retry:
+            updates["current_index"] = card_index
+        notion_service.update_user_progress(user_id, updates)
+        self.send_next_card(reply_token, user_id, skip_retry=True)
 
     def handle_next_card_click(self, reply_token: str, user_id: str, finished_index: int):
         """向下相容舊版「喵～我懂了」Postback，行為等同 handle_card_understood。"""

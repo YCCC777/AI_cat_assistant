@@ -248,7 +248,7 @@ class LineService:
             )),
             QuickReplyItem(action=PostbackAction(
                 label="😅 還不熟",
-                data=f"action=card_not_sure&index={card_index}",
+                data=f"action=card_not_sure&index={card_index}{retry_flag}",
                 display_text="😅 還不熟，再複習一次"
             )),
             QuickReplyItem(action=PostbackAction(
