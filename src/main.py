@@ -90,6 +90,11 @@ async def handle_postback(event: PostbackEvent):
             card_index = int(params.get("index", 0))
             study_service.handle_card_not_sure(reply_token, user_id, card_index)
 
+        elif action == "full_content":
+            card_index = int(params.get("index", 0))
+            is_retry = params.get("is_retry", "0") == "1"
+            study_service.handle_full_content(reply_token, card_index, is_retry)
+
         elif action == "report_card":
             card_index = int(params.get("index", 0))
             pending_reports[user_id] = card_index
