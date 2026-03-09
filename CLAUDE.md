@@ -154,3 +154,22 @@ Rich Menu 圖片：`image/rich_menu.jpg`（Dockerfile build 時自動從 GitHub 
 | 2026-03-06 | 捏肉球改為領取學習卡功能；倒數整合進讀書進度；carousel 從 4 張減為 3 張 |
 | 2026-03-06 | AI 資訊改用 Quick Reply 互動問答，分為「AI 課程」與「iPAS 最新消息」兩條路徑 |
 | 2026-03-06 | 考試資訊捨棄 Gemini Grounding，改用 iPAS 官方內部 API 爬蟲（零 token、7天快取） |
+| 2026-03-08 | 陪讀設定改為兩層 Quick Reply Postback（選考試種類 → 選日期），嚴格驗證只接受 iPAS 初級 |
+| 2026-03-08 | 新增 `exam_dates.py`：115年4場初級考試日期 hard-code，每年年份不符時自動爬蟲更新 |
+
+## Learning Card DB 擴充架構（待實作）
+
+### iPAS 考試結構
+- **初級**：科目一 + 科目二 均為必考，用戶一起讀，Card_ID 全局流水號，`Exam_Type = 初級`
+- **中級**：科目一/二/三，用戶**選考**（通常考 1~2 科，也可跨梯次），每科需獨立進度追蹤
+
+### 未來擴充步驟（安全順序，不影響現有用戶）
+1. Notion Learning Card DB 加 `Exam_Type` Select 欄位（初級/中級）
+2. 把所有現有卡片標記為 `Exam_Type = 初級`（步驟 1、2 不動程式碼，對用戶零影響）
+3. 部署程式碼：`get_learning_card(index, exam_type)` 加 `Exam_Type` 過濾
+4. 中級上線時：加 `Subject` Select 過濾（科目一/二/三）+ User Progress DB 改為支援一人多科進度
+
+### 注意事項
+- 步驟 2 必須在步驟 3 **之前**完成，否則過濾後取不到卡片，影響 50+ 現有用戶
+- Learning Card DB 已有 `Subject` Select 欄位（目前程式碼未使用）
+- 現行程式碼只查 `Card_ID`，新增 Notion 欄位對現有功能完全無影響

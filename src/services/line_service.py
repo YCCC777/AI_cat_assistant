@@ -202,6 +202,63 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_messages 失敗: {str(e)}")
 
+    def reply_card_question(self, reply_token: str, chapter: str, card_index: int, countdown_days: int | None = None, question: str = ""):
+        """
+        翻牌第一則：出題，顯示章節名稱與題目，附「看解答」Postback Quick Reply。
+        """
+        lines = [f"📖 學習卡 #{card_index}", f"💡【{chapter}】"]
+        if countdown_days is not None and countdown_days > 0:
+            lines.append(f"⏰ 還有 {countdown_days} 天就考試了！")
+        elif countdown_days == 0:
+            lines.append("⏰ 今天就是考試日！全力以赴喵！")
+        if question:
+            lines.append(f"\n❓ {question}")
+        else:
+            lines.append("\n❓ 先回憶一下這個概念，準備好了嗎？")
+        text = "\n".join(lines)
+        qr = QuickReply(items=[
+            QuickReplyItem(action=PostbackAction(
+                label="👀 看解答",
+                data=f"action=reveal_card&index={card_index}",
+                display_text="看解答"
+            ))
+        ])
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text, quick_reply=qr)])
+            )
+        except Exception as e:
+            logger.error(f"reply_card_question 失敗: {str(e)}")
+
+    def reply_card_answer(self, reply_token: str, chapter: str, short_content: str, card_index: int):
+        """
+        翻牌第二則：揭曉解答（⚠️ 考試陷阱精華），附「懂了」/「還不熟」/「回報」三個按鈕。
+        """
+        answer_text = f"【{chapter}】\n\n{short_content}"
+        qr = QuickReply(items=[
+            QuickReplyItem(action=PostbackAction(
+                label="✅ 懂了！",
+                data=f"action=card_understood&index={card_index}",
+                display_text="✅ 我懂了，換下一張！"
+            )),
+            QuickReplyItem(action=PostbackAction(
+                label="😅 還不熟",
+                data=f"action=card_not_sure&index={card_index}",
+                display_text="😅 還不熟，再複習一次"
+            )),
+            QuickReplyItem(action=PostbackAction(
+                label="⚠️ 回報問題",
+                data=f"action=report_card&index={card_index}",
+                display_text="我想回報這張學習卡的問題"
+            )),
+        ])
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=answer_text, quick_reply=qr)])
+            )
+        except Exception as e:
+            logger.error(f"reply_card_answer 失敗: {str(e)}")
+
     def reply_learning_card(self, reply_token: str, chapter: str, content: str, next_index: int, countdown_days: int | None = None):
         """
         發送帶有「喵～我懂了」按鈕的學習卡。

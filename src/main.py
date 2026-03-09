@@ -72,8 +72,20 @@ async def handle_postback(event: PostbackEvent):
         action = params.get("action")
 
         if action == "next_card":
+            # 向下相容舊版按鈕
             finished_index = int(params.get("index", 0))
-            study_service.handle_next_card_click(reply_token, user_id, finished_index)
+            study_service.handle_card_understood(reply_token, user_id, finished_index)
+
+        elif action == "reveal_card":
+            card_index = int(params.get("index", 0))
+            study_service.handle_reveal_card(reply_token, card_index)
+
+        elif action == "card_understood":
+            card_index = int(params.get("index", 0))
+            study_service.handle_card_understood(reply_token, user_id, card_index)
+
+        elif action == "card_not_sure":
+            study_service.handle_card_not_sure(reply_token)
 
         elif action == "report_card":
             card_index = int(params.get("index", 0))

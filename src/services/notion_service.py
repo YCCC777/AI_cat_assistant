@@ -8,6 +8,24 @@ logger = logging.getLogger(__name__)
 
 NOTION_VERSION = "2022-06-28"
 
+
+def _extract_short_content(content: str, max_len: int = 180) -> str:
+    """從 Content 萃取 ⚠️ 考試陷阱段落，控制在 max_len 字內。若無陷阱段則取前兩條 bullet。"""
+    lines = [l.strip() for l in content.replace("<br>", "\n").split("\n") if l.strip()]
+    trap_lines = []
+    in_trap = False
+    for line in lines:
+        if "⚠️" in line:
+            in_trap = True
+        if in_trap:
+            trap_lines.append(line)
+    if trap_lines:
+        return "\n".join(trap_lines)[:max_len]
+    bullets = [l for l in lines if l.startswith("•")]
+    if bullets:
+        return "\n".join(bullets[:2])[:max_len]
+    return content[:max_len]
+
 class NotionService:
     """
     負責與 Notion API 互動，作為課程資料庫。
@@ -146,9 +164,17 @@ class NotionService:
             results = r.json().get("results")
             if results:
                 props = results[0]["properties"]
+                content = props["Content"]["rich_text"][0]["text"]["content"] if props["Content"]["rich_text"] else ""
+                chapter = props["Chapter"]["rich_text"][0]["text"]["content"] if props["Chapter"]["rich_text"] else "通用"
+                question = props["Question"]["rich_text"][0]["text"]["content"] if props.get("Question", {}).get("rich_text") else ""
+                # P2: 動態計算 short_content 上限，使答題訊息「【chapter】\n\n{short_content}」≤ 200 字
+                answer_overhead = len(chapter) + 5  # 【 + chapter + 】 + \n\n
+                max_short = max(60, 200 - answer_overhead)
                 return {
-                    "chapter": props["Chapter"]["rich_text"][0]["text"]["content"] if props["Chapter"]["rich_text"] else "通用",
-                    "content": props["Content"]["rich_text"][0]["text"]["content"] if props["Content"]["rich_text"] else ""
+                    "chapter": chapter,
+                    "content": content,
+                    "short_content": _extract_short_content(content, max_len=max_short),
+                    "question": question,
                 }
             return None
         except Exception as e:

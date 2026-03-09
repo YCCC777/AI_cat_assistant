@@ -147,7 +147,7 @@ class StudyService:
 
     def send_next_card(self, reply_token: str, user_id: str):
         """
-        發送下一張學習卡給使用者。
+        翻牌第一步：發送學習卡「出題訊息」（只顯示章節名，附「看解答」按鈕）。
         """
         progress = notion_service.get_user_progress(user_id)
         if not progress:
@@ -156,24 +156,44 @@ class StudyService:
 
         current_index = progress["current_index"]
         next_index = current_index + 1
-        
+
         card = notion_service.get_learning_card(next_index)
         if not card:
             line_service.reply_text(reply_token, "喵！恭喜您把所有學習卡都捏完了！本喵正在努力準備更多內容，請期待喔～🐾")
             return
 
         countdown_days = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
-        line_service.reply_learning_card(reply_token, card["chapter"], card["content"], next_index, countdown_days)
+        line_service.reply_card_question(reply_token, card["chapter"], next_index, countdown_days, card.get("question", ""))
+
+    def handle_reveal_card(self, reply_token: str, card_index: int):
+        """
+        翻牌第二步：使用者點「看解答」後，顯示考試陷阱精華 + 自評按鈕。
+        """
+        card = notion_service.get_learning_card(card_index)
+        if not card:
+            line_service.reply_text(reply_token, "喵嗚...找不到這張學習卡，請稍後再試喵～🐾")
+            return
+        line_service.reply_card_answer(reply_token, card["chapter"], card["short_content"], card_index)
+
+    def handle_card_understood(self, reply_token: str, user_id: str, card_index: int):
+        """
+        使用者點「✅ 懂了」：更新進度並發送下一張出題訊息。
+        """
+        notion_service.update_user_progress(user_id, {"current_index": card_index})
+        self.send_next_card(reply_token, user_id)
+
+    def handle_card_not_sure(self, reply_token: str):
+        """
+        使用者點「😅 還不熟」：不推進進度，給予鼓勵，下次捏肉球還會看到同一張。
+        """
+        line_service.reply_text(
+            reply_token,
+            "沒關係喵！本喵幫你記下來了 📝\n下次捏肉球還會出現這題，繼續加油！🐾"
+        )
 
     def handle_next_card_click(self, reply_token: str, user_id: str, finished_index: int):
-        """
-        處理使用者點擊「喵～我懂了」後的邏輯：更新進度並發送下一張。
-        """
-        # 1. 更新進度
-        notion_service.update_user_progress(user_id, {"current_index": finished_index})
-        
-        # 2. 發送下一張
-        self.send_next_card(reply_token, user_id)
+        """向下相容舊版「喵～我懂了」Postback，行為等同 handle_card_understood。"""
+        self.handle_card_understood(reply_token, user_id, finished_index)
 
     def get_countdown_msg(self, user_id: str):
         """
