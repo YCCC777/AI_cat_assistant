@@ -202,11 +202,13 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_messages 失敗: {str(e)}")
 
-    def reply_card_question(self, reply_token: str, chapter: str, card_index: int, countdown_days: int | None = None, question: str = ""):
+    def reply_card_question(self, reply_token: str, chapter: str, card_index: int, countdown_days: int | None = None, question: str = "", is_retry: bool = False):
         """
         翻牌第一則：出題，顯示章節名稱與題目，附「看解答」Postback Quick Reply。
+        複習卡標示 🔁，postback 帶 is_retry=1 供後續識別。
         """
-        lines = [f"📖 學習卡 #{card_index}", f"💡【{chapter}】"]
+        prefix = "🔁 複習卡" if is_retry else "📖 學習卡"
+        lines = [f"{prefix} #{card_index}", f"💡【{chapter}】"]
         if countdown_days is not None and countdown_days > 0:
             lines.append(f"⏰ 還有 {countdown_days} 天就考試了！")
         elif countdown_days == 0:
@@ -216,10 +218,11 @@ class LineService:
         else:
             lines.append("\n❓ 先回憶一下這個概念，準備好了嗎？")
         text = "\n".join(lines)
+        retry_flag = "&is_retry=1" if is_retry else ""
         qr = QuickReply(items=[
             QuickReplyItem(action=PostbackAction(
                 label="👀 看解答",
-                data=f"action=reveal_card&index={card_index}",
+                data=f"action=reveal_card&index={card_index}{retry_flag}",
                 display_text="看解答"
             ))
         ])
@@ -230,15 +233,17 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_card_question 失敗: {str(e)}")
 
-    def reply_card_answer(self, reply_token: str, chapter: str, short_content: str, card_index: int):
+    def reply_card_answer(self, reply_token: str, chapter: str, short_content: str, card_index: int, is_retry: bool = False):
         """
         翻牌第二則：揭曉解答（⚠️ 考試陷阱精華），附「懂了」/「還不熟」/「回報」三個按鈕。
+        is_retry 旗標透過 postback data 傳遞，讓 handle_card_understood 知道是否為複習卡。
         """
         answer_text = f"【{chapter}】\n\n{short_content}"
+        retry_flag = "&is_retry=1" if is_retry else ""
         qr = QuickReply(items=[
             QuickReplyItem(action=PostbackAction(
                 label="✅ 懂了！",
-                data=f"action=card_understood&index={card_index}",
+                data=f"action=card_understood&index={card_index}{retry_flag}",
                 display_text="✅ 我懂了，換下一張！"
             )),
             QuickReplyItem(action=PostbackAction(

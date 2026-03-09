@@ -1,5 +1,6 @@
 from notion_client import Client
 import httpx
+import json
 import logging
 from src.utils.config import settings
 from src.models.course import CourseInfo
@@ -103,6 +104,7 @@ class NotionService:
                     "current_index": props["Current_Card_Index"]["number"] or 0,
                     "understood_count": int(props["Understood_Count"]["number"] or 0) if props.get("Understood_Count") and props["Understood_Count"]["number"] is not None else 0,
                     "not_sure_count": int(props["Not_Sure_Count"]["number"] or 0) if props.get("Not_Sure_Count") and props["Not_Sure_Count"]["number"] is not None else 0,
+                    "retry_indices": json.loads(props["Retry_Indices"]["rich_text"][0]["text"]["content"]) if props.get("Retry_Indices") and props["Retry_Indices"]["rich_text"] else [],
                 }
             return None
         except Exception as e:
@@ -134,6 +136,15 @@ class NotionService:
             if "increment_not_sure" in data:
                 cur = progress["not_sure_count"] if progress else 0
                 properties["Not_Sure_Count"] = {"number": cur + 1}
+            if "add_retry" in data:
+                cur_retry = list(progress["retry_indices"]) if progress else []
+                if data["add_retry"] not in cur_retry:
+                    cur_retry.append(data["add_retry"])
+                properties["Retry_Indices"] = {"rich_text": [{"text": {"content": json.dumps(cur_retry)}}]}
+            if "remove_retry" in data:
+                cur_retry = list(progress["retry_indices"]) if progress else []
+                cur_retry = [i for i in cur_retry if i != data["remove_retry"]]
+                properties["Retry_Indices"] = {"rich_text": [{"text": {"content": json.dumps(cur_retry)}}]}
 
             # 更新最後互動時間
             from datetime import datetime

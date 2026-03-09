@@ -20,17 +20,18 @@ class StudyService:
             return "喵～看來您還沒加入陪讀計畫呢！\n請輸入「報名 [考試名稱] [日期(YYYY-MM-DD)]」來啟動喵！\n例如：報名 iPAS AI 2026-05-20"
         
         understood = progress.get("understood_count", 0)
-        not_sure = progress.get("not_sure_count", 0)
-        total_answered = understood + not_sure
+        retry_count = len(progress.get("retry_indices", []))
+        total_answered = progress.get("understood_count", 0) + progress.get("not_sure_count", 0)
         accuracy = int(understood / total_answered * 100) if total_answered > 0 else 0
+        retry_hint = f"\n🔁 複習佇列：{retry_count} 張（下次捏肉球優先出現）" if retry_count > 0 else ""
         return (
             f"🐾 您的陪讀進度 🐾\n"
             f"📖 目標：{progress['exam_name']}\n"
             f"⏳ 倒數：{self._calculate_countdown(progress['exam_date'])} 天\n"
             f"🍖 已讀：{progress['current_index']} 張學習卡\n"
             f"✅ 已懂：{understood} 張\n"
-            f"😅 待複習：{not_sure} 張\n"
-            f"📊 答對率：{accuracy}%\n\n"
+            f"📊 答對率：{accuracy}%"
+            f"{retry_hint}\n\n"
             f"點擊下方選單或輸入「捏肉球」來讀書喵！"
         )
 
@@ -154,25 +155,31 @@ class StudyService:
 
     def send_next_card(self, reply_token: str, user_id: str):
         """
-        翻牌第一步：發送學習卡「出題訊息」（只顯示章節名，附「看解答」按鈕）。
+        翻牌第一步：優先發送複習佇列中的卡，佇列空時才推進到下一張新卡。
         """
         progress = notion_service.get_user_progress(user_id)
         if not progress:
             line_service.reply_text(reply_token, "喵？要先設定考試目標才能捏肉球喔！請點選「陪讀設定」或輸入「陪讀設定」查看格式。")
             return
 
-        current_index = progress["current_index"]
-        next_index = current_index + 1
+        # P3：優先取複習佇列
+        retry_indices = progress.get("retry_indices", [])
+        if retry_indices:
+            card_index = retry_indices[0]
+            is_retry = True
+        else:
+            card_index = progress["current_index"] + 1
+            is_retry = False
 
-        card = notion_service.get_learning_card(next_index)
+        card = notion_service.get_learning_card(card_index)
         if not card:
             line_service.reply_text(reply_token, "喵！恭喜您把所有學習卡都捏完了！本喵正在努力準備更多內容，請期待喔～🐾")
             return
 
         countdown_days = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
-        line_service.reply_card_question(reply_token, card["chapter"], next_index, countdown_days, card.get("question", ""))
+        line_service.reply_card_question(reply_token, card["chapter"], card_index, countdown_days, card.get("question", ""), is_retry=is_retry)
 
-    def handle_reveal_card(self, reply_token: str, card_index: int):
+    def handle_reveal_card(self, reply_token: str, card_index: int, is_retry: bool = False):
         """
         翻牌第二步：使用者點「看解答」後，顯示考試陷阱精華 + 自評按鈕。
         """
@@ -180,23 +187,28 @@ class StudyService:
         if not card:
             line_service.reply_text(reply_token, "喵嗚...找不到這張學習卡，請稍後再試喵～🐾")
             return
-        line_service.reply_card_answer(reply_token, card["chapter"], card["short_content"], card_index)
+        line_service.reply_card_answer(reply_token, card["chapter"], card["short_content"], card_index, is_retry=is_retry)
 
-    def handle_card_understood(self, reply_token: str, user_id: str, card_index: int):
+    def handle_card_understood(self, reply_token: str, user_id: str, card_index: int, is_retry: bool = False):
         """
-        使用者點「✅ 懂了」：更新進度、累計懂了次數，並發送下一張出題訊息。
+        使用者點「✅ 懂了」：
+        - 複習卡：從 retry_indices 移除，不推進 current_index
+        - 新卡：推進 current_index
         """
-        notion_service.update_user_progress(user_id, {"current_index": card_index, "increment_understood": True})
+        if is_retry:
+            notion_service.update_user_progress(user_id, {"remove_retry": card_index, "increment_understood": True})
+        else:
+            notion_service.update_user_progress(user_id, {"current_index": card_index, "increment_understood": True})
         self.send_next_card(reply_token, user_id)
 
-    def handle_card_not_sure(self, reply_token: str, user_id: str):
+    def handle_card_not_sure(self, reply_token: str, user_id: str, card_index: int):
         """
-        使用者點「😅 還不熟」：不推進進度、累計待複習次數，給予鼓勵。
+        使用者點「😅 還不熟」：加入 retry_indices，累計待複習次數，給予鼓勵。
         """
-        notion_service.update_user_progress(user_id, {"increment_not_sure": True})
+        notion_service.update_user_progress(user_id, {"add_retry": card_index, "increment_not_sure": True})
         line_service.reply_text(
             reply_token,
-            "沒關係喵！本喵幫你記下來了 📝\n下次捏肉球還會出現這題，繼續加油！🐾"
+            "沒關係喵！本喵幫你記下來了 📝\n下次捏肉球會優先複習這題，繼續加油！🐾"
         )
 
     def handle_next_card_click(self, reply_token: str, user_id: str, finished_index: int):
