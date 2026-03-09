@@ -329,12 +329,12 @@ async def process_and_reply(reply_token: str, message_text: str, user_id: str):
             )
 
         final_msg = "喵～記下來囉！🐾\n\n" + "\n---\n".join(reply_msgs)
-        line_service.reply_text(reply_token, final_msg)
+        line_service.push_text(user_id, final_msg)
         user_limiter.add_usage(user_id)
 
     except Exception as e:
         logger.error(f"process_and_reply 出錯: {type(e).__name__}: {str(e)}", exc_info=True)
-        line_service.reply_text(reply_token, "喵嗚...本喵腦袋打結了，請稍後再試一次！🐾")
+        line_service.push_text(user_id, "喵嗚...本喵腦袋打結了，請稍後再試一次！🐾")
 
 
 if __name__ == "__main__":
