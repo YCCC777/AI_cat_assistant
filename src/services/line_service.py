@@ -265,6 +265,29 @@ class LineService:
             logger.error(f"reply_card_answer 失敗: {str(e)}")
 
 
+    def reply_all_cards_done(self, reply_token: str):
+        """
+        所有學習卡都讀完時，顯示完成訊息 + Quick Reply「重新從頭複習」按鈕。
+        """
+        text = (
+            "喵！🎉 恭喜主人把所有學習卡都捏完了！\n\n"
+            "想再鞏固一次記憶嗎？\n"
+            "點下方按鈕可以重新從頭複習喵！🐾"
+        )
+        qr = QuickReply(items=[
+            QuickReplyItem(action=PostbackAction(
+                label="🔄 重新從頭複習",
+                data="action=restart_review",
+                display_text="🔄 我要重新從頭複習！"
+            )),
+        ])
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text, quick_reply=qr)])
+            )
+        except Exception as e:
+            logger.error(f"reply_all_cards_done 失敗: {str(e)}")
+
     def reply_learning_card(self, reply_token: str, chapter: str, content: str, next_index: int, countdown_days: int | None = None):
         """
         發送帶有「喵～我懂了」按鈕的學習卡。

@@ -174,7 +174,7 @@ class StudyService:
 
         card = notion_service.get_learning_card(card_index)
         if not card:
-            line_service.reply_text(reply_token, "喵！恭喜您把所有學習卡都捏完了！本喵正在努力準備更多內容，請期待喔～🐾")
+            line_service.reply_all_cards_done(reply_token)
             return
 
         countdown_days = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
@@ -214,6 +214,13 @@ class StudyService:
             updates["current_index"] = card_index
         notion_service.update_user_progress(user_id, updates)
         self.send_next_card(reply_token, user_id, skip_retry=True)
+
+    def handle_restart_review(self, reply_token: str, user_id: str):
+        """
+        使用者點「🔄 重新從頭複習」：重設 current_index 為 0、清空 retry_indices，再發第一張卡。
+        """
+        notion_service.update_user_progress(user_id, {"current_index": 0, "clear_retry": True})
+        self.send_next_card(reply_token, user_id)
 
     def handle_next_card_click(self, reply_token: str, user_id: str, finished_index: int):
         """向下相容舊版「喵～我懂了」Postback，行為等同 handle_card_understood。"""

@@ -91,6 +91,9 @@ async def handle_postback(event: PostbackEvent):
             is_retry = params.get("is_retry", "0") == "1"
             study_service.handle_card_not_sure(reply_token, user_id, card_index, is_retry)
 
+        elif action == "restart_review":
+            study_service.handle_restart_review(reply_token, user_id)
+
         elif action == "report_card":
             card_index = int(params.get("index", 0))
             pending_reports[user_id] = card_index

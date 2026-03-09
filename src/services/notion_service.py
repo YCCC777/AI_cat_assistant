@@ -145,6 +145,8 @@ class NotionService:
                 cur_retry = list(progress["retry_indices"]) if progress else []
                 cur_retry = [i for i in cur_retry if i != data["remove_retry"]]
                 properties["Retry_Indices"] = {"rich_text": [{"text": {"content": json.dumps(cur_retry)}}]}
+            if data.get("clear_retry"):
+                properties["Retry_Indices"] = {"rich_text": [{"text": {"content": "[]"}}]}
 
             # 更新最後互動時間
             from datetime import datetime
