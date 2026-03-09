@@ -233,19 +233,14 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_card_question 失敗: {str(e)}")
 
-    def reply_card_answer(self, reply_token: str, chapter: str, short_content: str, card_index: int, is_retry: bool = False):
+    def reply_card_answer(self, reply_token: str, chapter: str, content: str, card_index: int, is_retry: bool = False):
         """
-        翻牌第二則：揭曉解答（⚠️ 考試陷阱精華），附「懂了」/「還不熟」/「回報」三個按鈕。
+        翻牌第二則：揭曉完整解說，附「懂了」/「還不熟」/「回報」三個按鈕。
         is_retry 旗標透過 postback data 傳遞，讓 handle_card_understood 知道是否為複習卡。
         """
-        answer_text = f"【{chapter}】\n\n{short_content}"
+        answer_text = f"【{chapter}】\n\n{content}"
         retry_flag = "&is_retry=1" if is_retry else ""
         qr = QuickReply(items=[
-            QuickReplyItem(action=PostbackAction(
-                label="📖 看完整解說",
-                data=f"action=full_content&index={card_index}{retry_flag}",
-                display_text="看完整解說"
-            )),
             QuickReplyItem(action=PostbackAction(
                 label="✅ 懂了！",
                 data=f"action=card_understood&index={card_index}{retry_flag}",
@@ -269,30 +264,6 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_card_answer 失敗: {str(e)}")
 
-    def reply_card_full_content(self, reply_token: str, chapter: str, content: str, card_index: int, is_retry: bool = False):
-        """
-        完整解說：顯示全文（📌核心概念 + ⚠️考試陷阱），附「懂了」/「還不熟」兩個按鈕。
-        """
-        text = f"📖【{chapter}】完整解說\n\n{content}"
-        retry_flag = "&is_retry=1" if is_retry else ""
-        qr = QuickReply(items=[
-            QuickReplyItem(action=PostbackAction(
-                label="✅ 懂了！",
-                data=f"action=card_understood&index={card_index}{retry_flag}",
-                display_text="✅ 我懂了，換下一張！"
-            )),
-            QuickReplyItem(action=PostbackAction(
-                label="😅 還不熟",
-                data=f"action=card_not_sure&index={card_index}",
-                display_text="😅 還不熟，再複習一次"
-            )),
-        ])
-        try:
-            self.messaging_api.reply_message(
-                ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text, quick_reply=qr)])
-            )
-        except Exception as e:
-            logger.error(f"reply_card_full_content 失敗: {str(e)}")
 
     def reply_learning_card(self, reply_token: str, chapter: str, content: str, next_index: int, countdown_days: int | None = None):
         """

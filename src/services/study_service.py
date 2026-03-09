@@ -187,18 +187,8 @@ class StudyService:
         if not card:
             line_service.reply_text(reply_token, "喵嗚...找不到這張學習卡，請稍後再試喵～🐾")
             return
-        line_service.reply_card_answer(reply_token, card["chapter"], card["short_content"], card_index, is_retry=is_retry)
-
-    def handle_full_content(self, reply_token: str, card_index: int, is_retry: bool = False):
-        """
-        使用者點「📖 看完整解說」後，顯示完整筆記全文 + 懂了/還不熟按鈕。
-        """
-        card = notion_service.get_learning_card(card_index)
-        if not card:
-            line_service.reply_text(reply_token, "喵嗚...找不到這張學習卡，請稍後再試喵～🐾")
-            return
         full_text = card["content"].replace("<br>", "\n")
-        line_service.reply_card_full_content(reply_token, card["chapter"], full_text, card_index, is_retry=is_retry)
+        line_service.reply_card_answer(reply_token, card["chapter"], full_text, card_index, is_retry=is_retry)
 
     def handle_card_understood(self, reply_token: str, user_id: str, card_index: int, is_retry: bool = False):
         """
