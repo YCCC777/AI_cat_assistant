@@ -214,13 +214,10 @@ class StudyService:
 
     def handle_card_not_sure(self, reply_token: str, user_id: str, card_index: int):
         """
-        使用者點「😅 還不熟」：加入 retry_indices，累計待複習次數，給予鼓勵。
+        使用者點「😅 還不熟」：加入 retry_indices，累計待複習次數，立即跳下一張。
         """
         notion_service.update_user_progress(user_id, {"add_retry": card_index, "increment_not_sure": True})
-        line_service.reply_text(
-            reply_token,
-            "沒關係喵！本喵幫你記下來了 📝\n下次捏肉球會優先複習這題，繼續加油！🐾"
-        )
+        self.send_next_card(reply_token, user_id)
 
     def handle_next_card_click(self, reply_token: str, user_id: str, finished_index: int):
         """向下相容舊版「喵～我懂了」Postback，行為等同 handle_card_understood。"""
