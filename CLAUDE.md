@@ -157,6 +157,16 @@ Rich Menu 圖片：`image/rich_menu.jpg`（Dockerfile build 時自動從 GitHub 
 | 2026-03-08 | 陪讀設定改為兩層 Quick Reply Postback（選考試種類 → 選日期），嚴格驗證只接受 iPAS 初級 |
 | 2026-03-08 | 新增 `exam_dates.py`：115年4場初級考試日期 hard-code，每年年份不符時自動爬蟲更新 |
 
+## 已知待改項目
+
+### 「😅 還不熟」後應自動跳下一張（待實作）
+- **現況**：點「還不熟」後只顯示鼓勵訊息並停止，用戶需再手動捏肉球
+- **期望行為**：點「還不熟」後，立即發下一張卡（與「懂了」相同流程），但該卡已加入 `retry_indices`，下次捏肉球有高機率穿插複習
+- **改動位置**：`src/services/study_service.py` → `handle_card_not_sure()`
+  - 現在：`update_user_progress(add_retry) + reply_text(鼓勵)`
+  - 改後：`update_user_progress(add_retry) + send_next_card()`（移除 reply_text，改由下一張卡的訊息帶入鼓勵或不顯示）
+- **注意**：鼓勵訊息可整合進 `send_next_card()` 的前置文字，或直接省略
+
 ## Learning Card DB 擴充架構（待實作）
 
 ### iPAS 考試結構
