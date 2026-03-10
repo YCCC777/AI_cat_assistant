@@ -190,7 +190,14 @@ async def handle_text_message(event: MessageEvent):
 
     # 2. 固定回覆指令
     if message_text == "AI 資訊":
-        await handle_ai_exam_info(reply_token)
+        line_service.reply_with_quick_reply(
+            reply_token,
+            "喵～想讓本喵帶你看什麼資訊呢？🐾",
+            [
+                ("📋 iPAS 最新消息", "AI 考試資訊"),
+                ("📰 AI 週報", "AI 週報"),
+            ]
+        )
         return
 
     if message_text == "AI 課程":
@@ -227,7 +234,7 @@ async def handle_text_message(event: MessageEvent):
         return
 
     if message_text == "AI 週報":
-        line_service.reply_text(reply_token, "喵嗚～週報模組還在貓咪產房努力中！預計 Phase 3 就會跟大家見面了，主人再等等本喵喔～🐾")
+        await handle_ai_weekly_news(reply_token)
         return
 
     # 3. 管理員指令
@@ -299,6 +306,23 @@ async def handle_ai_exam_info(reply_token: str):
     except Exception as e:
         logger.error(f"handle_ai_exam_info 失敗: {e}")
         line_service.reply_text(reply_token, "喵嗚...本喵出任務失敗了，iPAS 官網好像在睡覺，請稍後再試喵～🐾")
+
+
+async def handle_ai_weekly_news(reply_token: str):
+    news = notion_service.get_latest_ai_news(limit=5)
+    if not news:
+        line_service.reply_text(reply_token, "喵嗚...本喵翻遍週報庫了，找不到資料，請稍後再試喵～🐾")
+        return
+    date_str = news[0]["date"]
+    try:
+        dt = datetime.fromisoformat(date_str)
+        date_display = f"{dt.year}年{dt.month:02d}月{dt.day:02d}日"
+    except Exception:
+        date_display = date_str
+    lines = [f"喵～以下是 {date_display} 的 AI 週報，每則都對應考綱！📰🐾\n"]
+    for item in news:
+        lines.append(item["content"])
+    line_service.reply_text(reply_token, "\n\n---\n\n".join(lines))
 
 
 async def process_and_reply(reply_token: str, message_text: str, user_id: str):

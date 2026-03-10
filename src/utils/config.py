@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     NOTION_USER_PROGRESS_DB_ID: Optional[str] = None
     NOTION_LEARNING_CARD_DB_ID: Optional[str] = None
     NOTION_REPORT_DB_ID: Optional[str] = None
+    NOTION_NEWS_DB_ID: Optional[str] = None
 
     # 管理與安全
     ADMIN_LINE_USER_ID: str

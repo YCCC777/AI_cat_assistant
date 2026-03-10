@@ -202,6 +202,37 @@ class NotionService:
             logger.error(f"獲取學習卡失敗: {str(e)}")
             return None
 
+    def get_latest_ai_news(self, limit: int = 5) -> list[dict]:
+        """
+        從 AI_News_Database 取最新 N 則 AI 週報資料。
+        回傳 [{"content": str, "date": str}, ...] 依 News_Date 降序排列。
+        """
+        if not self.notion or not settings.NOTION_NEWS_DB_ID:
+            return []
+        try:
+            r = httpx.post(
+                f"https://api.notion.com/v1/databases/{settings.NOTION_NEWS_DB_ID}/query",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={
+                    "sorts": [{"property": "News_Date", "direction": "descending"}],
+                    "page_size": limit,
+                },
+                timeout=15,
+            )
+            r.raise_for_status()
+            results = r.json().get("results", [])
+            news = []
+            for item in results:
+                props = item["properties"]
+                content = props["News_Content"]["title"][0]["plain_text"] if props["News_Content"]["title"] else ""
+                date = props["News_Date"]["date"]["start"] if props["News_Date"]["date"] else ""
+                if content:
+                    news.append({"content": content, "date": date})
+            return news
+        except Exception as e:
+            logger.error(f"get_latest_ai_news 失敗: {str(e)}")
+            return []
+
     def create_card_report(self, card_id: int, reporter_id: str, content: str) -> bool:
         if not self.notion or not self.report_db_id:
             return False
