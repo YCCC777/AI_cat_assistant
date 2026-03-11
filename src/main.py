@@ -165,9 +165,19 @@ async def handle_text_message(event: MessageEvent):
         return
 
     if message_text.startswith("報名"):
-        # 保留文字格式相容，但嚴格驗證
-        reply = study_service.register_exam(user_id, message_text)
-        line_service.reply_text(reply_token, reply)
+        # 引導用戶使用按鈕選單，避免文字格式出錯
+        progress = notion_service.get_user_progress(user_id)
+        if progress and progress.get("exam_name") and progress["exam_name"] != "未設定":
+            prefix = (
+                f"目前本喵幫你追蹤的目標是【{progress['exam_name']}】，"
+                f"考試日期 {progress['exam_date']}，"
+                f"還有 {study_service._calculate_countdown(progress['exam_date'])} 天喵！\n\n"
+                f"喵～打字容易出錯，請點下方按鈕來選擇考試場次，本喵幫你記得準準的！🐾"
+            )
+        else:
+            prefix = "喵～打字容易出錯，請點下方按鈕來選擇考試場次，本喵幫你記得準準的！🐾"
+        exam_options = study_service.get_exam_type_options()
+        line_service.reply_with_quick_reply_postback(reply_token, prefix, exam_options)
         return
 
     if message_text in ["捏肉球", "讀書", "學習卡"]:
