@@ -166,27 +166,32 @@ class StudyService:
 
         today_str = datetime.now().date().isoformat()
         last_check_in = progress.get("last_check_in")
+        # Notion date 有時會帶時區，取前 10 字元確保只比較日期
+        last_check_in_date = (last_check_in or "")[:10]
 
-        if last_check_in == today_str:
+        if last_check_in_date == today_str:
             # 今天已打卡，直接發學習卡
             self.send_next_card(reply_token, user_id)
             return
 
         # 計算連續天數
         streak = progress.get("streak_days", 0)
-        if last_check_in:
-            from datetime import date
-            last_date = datetime.strptime(last_check_in, "%Y-%m-%d").date()
+        if last_check_in_date:
+            last_date = datetime.strptime(last_check_in_date, "%Y-%m-%d").date()
             diff = (datetime.now().date() - last_date).days
             streak = streak + 1 if diff == 1 else 1
         else:
             streak = 1
 
-        # 更新打卡記錄
-        notion_service.update_user_progress(user_id, {
+        # 更新打卡記錄；若失敗仍繼續，避免用戶卡在打卡畫面
+        ok = notion_service.update_user_progress(user_id, {
             "check_in_date": today_str,
             "streak_days": streak,
         })
+        if not ok:
+            logger.warning(f"打卡記錄寫入失敗 user={user_id[:8]}，直接發學習卡")
+            self.send_next_card(reply_token, user_id)
+            return
 
         # 回傳打卡訊息
         countdown = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
