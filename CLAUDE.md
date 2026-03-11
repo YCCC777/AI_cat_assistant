@@ -99,10 +99,11 @@ src/
 | `AI 資訊` | Quick Reply 問使用者要看哪種資訊 |
 | `AI 課程` | 顯示 Google Calendar 未來 7 天課程 |
 | `AI 考試資訊` | 顯示 iPAS 最新消息（爬蟲，7天快取） |
-| `捏肉球` / `餵罐罐` | 領取學習卡（附帶考試倒數提醒） |
-| `讀書進度` | 顯示目前讀書進度 + 倒數天數 |
+| `捏肉球` | 今天第一次 → 打卡儀式（連續天數 + 倒數 + 社群人數）；已打卡 → 直接發學習卡 |
+| `餵罐罐` | 死碼，規劃改為刷題功能 |
+| `讀書進度` | 顯示進度 + 倒數 + 連續打卡天數 + 已達成稱號 |
 | `貓咪陪讀` | 顯示陪讀 carousel（3張卡） |
-| `報名 [考試] [日期]` | 設定考試目標 |
+| `報名` / `陪讀設定` | 兩層 Quick Reply 選單（考試種類 → 日期），**不接受文字格式** |
 | `AI 課程查詢` | 同「AI 課程」（舊指令，保留相容） |
 | `更新選單`（管理員）| 重新初始化 Rich Menu |
 
@@ -157,31 +158,57 @@ Rich Menu 圖片：`image/rich_menu.jpg`（Dockerfile build 時自動從 GitHub 
 | 2026-03-08 | 陪讀設定改為兩層 Quick Reply Postback（選考試種類 → 選日期），嚴格驗證只接受 iPAS 初級 |
 | 2026-03-08 | 新增 `exam_dates.py`：115年4場初級考試日期 hard-code，每年年份不符時自動爬蟲更新 |
 | 2026-03-09 | 簡化學習卡流程：拿掉「看完整解說」中間步驟，看解答直接顯示完整 Content + 三個按鈕 |
+| 2026-03-11 | 捏肉球改為每日打卡儀式入口：第一次顯示 streak + 倒數 + 社群人數，已打卡直接發學習卡 |
+| 2026-03-11 | 學習卡移除倒數顯示（倒數只在打卡訊息出現） |
+| 2026-03-11 | Learning Card DB 加 Exam_Type 過濾，防止初級/中級卡混用 |
+| 2026-03-11 | 文字格式「報名 xxx」改導向按鈕選單，不再接受文字報名 |
+| 2026-03-11 | 互助激勵系統上線：稱號（動態計算）、里程碑慶祝 push、社群打卡人數、進度提示 |
 
 ## 已知待改項目
 
-### 「😅 還不熟」後跳出的仍是同一張卡（待修復）
-- **現況**：點「還不熟」後，`handle_card_not_sure()` 把該卡加入 `retry_indices` 再呼叫 `send_next_card()`，但 `send_next_card()` 看到 retry 佇列非空，又立刻重發剛加入的同一張卡
-- **期望行為**：點「還不熟」後跳到下一張**新卡**，被標記的卡留在 retry 佇列，等下次使用者主動「捏肉球」才作為複習卡穿插出現
-- **不需新增 Notion 欄位**，純程式邏輯修正
-- **改動位置**：`src/services/study_service.py` → `handle_card_not_sure()`
-  - 修法 A（推薦）：`send_next_card()` 加 `skip_retry=True` 參數，有傳入時強制走新卡邏輯（`current_index + 1`）
-  - 修法 B：`handle_card_not_sure()` 直接取 `current_index + 1` 發新卡，不呼叫 `send_next_card()`
-- **注意**：若目前正在複習的是 retry 卡（`is_retry=True`），點「還不熟」後應重新 add_retry 並跳到下一張 retry 或新卡（同修法 A 邏輯）
+（目前無待修復 Bug）
 
-## Learning Card DB 擴充架構（待實作）
+## Learning Card DB 擴充架構
 
 ### iPAS 考試結構
-- **初級**：科目一 + 科目二 均為必考，用戶一起讀，Card_ID 全局流水號，`Exam_Type = 初級`
-- **中級**：科目一/二/三，用戶**選考**（通常考 1~2 科，也可跨梯次），每科需獨立進度追蹤
+- **初級**：科目一 + 科目二 均為必考，Card_ID 全局流水號，`Exam_Type = iPAS AI應用規劃師(初級)`
+- **中級**：科目一/二/三，用戶**選考**，每科需獨立進度追蹤，`Exam_Type = iPAS AI應用規劃師(中級)`
 
-### 未來擴充步驟（安全順序，不影響現有用戶）
-1. Notion Learning Card DB 加 `Exam_Type` Select 欄位（初級/中級）
-2. 把所有現有卡片標記為 `Exam_Type = 初級`（步驟 1、2 不動程式碼，對用戶零影響）
-3. 部署程式碼：`get_learning_card(index, exam_type)` 加 `Exam_Type` 過濾
-4. 中級上線時：加 `Subject` Select 過濾（科目一/二/三）+ User Progress DB 改為支援一人多科進度
+### 擴充步驟狀態
+1. ✅ Learning Card DB 加 `Exam_Type` Select 欄位（已完成 2026-03-11）
+2. ✅ 現有初級卡片標記 `Exam_Type = iPAS AI應用規劃師(初級)`（已完成 2026-03-11）
+3. ✅ 程式碼加 `Exam_Type` 過濾（已部署 2026-03-11）
+4. ⏳ 中級上線時：加 `Subject` Select 過濾（科目一/二/三）+ User Progress DB 改為支援一人多科進度
 
 ### 注意事項
-- 步驟 2 必須在步驟 3 **之前**完成，否則過濾後取不到卡片，影響 50+ 現有用戶
-- Learning Card DB 已有 `Subject` Select 欄位（目前程式碼未使用）
-- 現行程式碼只查 `Card_ID`，新增 Notion 欄位對現有功能完全無影響
+- Select 值為半形括號：`iPAS AI應用規劃師(初級)` / `iPAS AI應用規劃師(中級)`
+- Learning Card DB 已有 `Subject` Select 欄位（程式碼目前未使用，保留供中級擴充）
+- 中級科目二學習卡準備中（2026-03-11）
+
+## Notion User Progress DB 欄位一覽
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `User_ID` | Title | LINE User ID |
+| `Exam_Name` | Rich Text | 考試名稱 |
+| `Exam_Date` | Date | 考試日期 |
+| `Current_Card_Index` | Number | 當前進度索引 |
+| `Understood_Count` | Number | 已懂張數 |
+| `Not_Sure_Count` | Number | 不熟張數 |
+| `Retry_Indices` | Rich Text | 複習佇列 JSON `[1,5,12]` |
+| `Last_Check_In_Date` | Date | 最後打卡日期（判斷每日第一次） |
+| `Streak_Days` | Number | 連續打卡天數 |
+| `Last_Interaction` | Date | 最後互動時間（自動更新） |
+
+## 互助激勵系統說明
+
+稱號與里程碑定義在 `src/services/study_service.py` 頂部常數，**不需要 Notion 欄位，動態計算**：
+
+| 條件 | 稱號 |
+|------|------|
+| 連續打卡 3 天 | 🐾 肉球新鮮人 |
+| 連續打卡 7 天 | ⭐ 週週精進 |
+| 連續打卡 30 天 | 🔥 燃燒的肉球 |
+| 已懂 10 張 | 📖 初探知識海 |
+| 已懂 30 張 | 📚 知識旅人 |
+| 已懂 50 張 | 🎯 半程勇者 |
