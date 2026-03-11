@@ -212,7 +212,8 @@ class StudyService:
             card_index = progress["current_index"] + 1
             is_retry = False
 
-        card = notion_service.get_learning_card(card_index)
+        exam_type = self._derive_exam_type(progress.get("exam_name", ""))
+        card = notion_service.get_learning_card(card_index, exam_type)
         if not card:
             line_service.reply_all_cards_done(reply_token)
             return
@@ -280,6 +281,12 @@ class StudyService:
             return "喵！！！就是今天！主人加油，本喵在這邊幫您集氣喵！🐾🔥"
         else:
             return f"距離【{progress['exam_name']}】還有 {days} 天喵！主人要持續餵食（讀書）喔，本喵會陪著你的！🐾"
+
+    def _derive_exam_type(self, exam_name: str) -> str:
+        """從 exam_name 推導 Notion Exam_Type Select 值。"""
+        if "中級" in exam_name:
+            return "iPAS AI應用規劃師(中級)"
+        return "iPAS AI應用規劃師(初級)"
 
     def _calculate_countdown(self, date_str: str) -> int:
         """

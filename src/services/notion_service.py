@@ -171,18 +171,24 @@ class NotionService:
             logger.error(f"更新使用者進度失敗: {str(e)}")
             return False
 
-    def get_learning_card(self, card_index: int):
+    def get_learning_card(self, card_index: int, exam_type: str | None = None):
         """
         獲取指定索引的學習卡。
+        exam_type 傳入時會加上 Exam_Type 過濾，避免初級/中級卡片混用。
         """
         if not self.notion or not self.card_db_id:
             return None
 
         try:
+            conditions = [{"property": "Card_ID", "title": {"equals": str(card_index)}}]
+            if exam_type:
+                conditions.append({"property": "Exam_Type", "select": {"equals": exam_type}})
+            query_filter = {"and": conditions} if len(conditions) > 1 else conditions[0]
+
             r = httpx.post(
                 f"https://api.notion.com/v1/databases/{self.card_db_id}/query",
                 headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
-                json={"filter": {"property": "Card_ID", "title": {"equals": str(card_index)}}},
+                json={"filter": query_filter},
                 timeout=15,
             )
             if not r.is_success:
