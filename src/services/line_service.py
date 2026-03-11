@@ -202,7 +202,16 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_messages 失敗: {str(e)}")
 
-    def reply_check_in(self, reply_token: str, streak: int, exam_name: str | None, countdown: int | None):
+    def reply_check_in(
+        self,
+        reply_token: str,
+        streak: int,
+        exam_name: str | None,
+        countdown: int | None,
+        today_checkin_count: int = 0,
+        next_milestone_hint: str | None = None,
+        streak_milestone_msg: str | None = None,
+    ):
         """
         每日第一次捏肉球的打卡訊息，附「翻開今日學習卡」Quick Reply 按鈕。
         """
@@ -221,7 +230,15 @@ class LineService:
         else:
             exam_line = "還沒設定考試目標喔！點「陪讀設定」來設定吧～"
 
-        text = f"{streak_line}\n{exam_line}"
+        lines = [streak_line]
+        if streak_milestone_msg:
+            lines.append(streak_milestone_msg)
+        lines.append(exam_line)
+        if today_checkin_count > 1:
+            lines.append(f"👥 今天有 {today_checkin_count} 位同學也在一起努力喵！")
+        if next_milestone_hint:
+            lines.append(f"✨ {next_milestone_hint}")
+        text = "\n".join(lines)
         qr = QuickReply(items=[
             QuickReplyItem(action=MessageAction(label="📖 翻開今日學習卡", text="捏肉球"))
         ])

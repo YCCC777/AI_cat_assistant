@@ -2,6 +2,7 @@ from notion_client import Client
 import httpx
 import json
 import logging
+from datetime import datetime
 from src.utils.config import settings
 from src.models.course import CourseInfo
 
@@ -155,7 +156,6 @@ class NotionService:
                 properties["Streak_Days"] = {"number": data["streak_days"]}
 
             # 更新最後互動時間
-            from datetime import datetime
             properties["Last_Interaction"] = {"date": {"start": datetime.now().isoformat()}}
 
             if progress:
@@ -244,6 +244,26 @@ class NotionService:
         except Exception as e:
             logger.error(f"get_latest_ai_news 失敗: {str(e)}")
             return []
+
+    def count_today_checkins(self) -> int:
+        """
+        查詢今日打卡人數（Last_Check_In_Date == today）。
+        """
+        if not self.notion or not self.user_db_id:
+            return 0
+        try:
+            today_str = datetime.now().date().isoformat()
+            r = httpx.post(
+                f"https://api.notion.com/v1/databases/{self.user_db_id}/query",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={"filter": {"property": "Last_Check_In_Date", "date": {"equals": today_str}}, "page_size": 100},
+                timeout=15,
+            )
+            r.raise_for_status()
+            return len(r.json().get("results", []))
+        except Exception as e:
+            logger.error(f"count_today_checkins 失敗: {str(e)}")
+            return 0
 
     def create_card_report(self, card_id: int, reporter_id: str, content: str) -> bool:
         if not self.notion or not self.report_db_id:

@@ -6,6 +6,18 @@ from src.utils.exam_dates import get_exam_dates, get_all_exam_names
 
 logger = logging.getLogger(__name__)
 
+STREAK_MILESTONES = {
+    3:  ("🐾 肉球新鮮人", "本喵知道你真的很想通過考試！加油喵！"),
+    7:  ("⭐ 週週精進",   "本喵決定把罐罐跟你分享打打氣喵！"),
+    30: ("🔥 燃燒的肉球", "你的熱情快把本喵的毛燒起來了喵！🔥"),
+}
+CARD_MILESTONES = {
+    10: ("📖 初探知識海", "好的開始是成功的一半喵！"),
+    30: ("📚 知識旅人",   "主人越讀越強了喵！"),
+    50: ("🎯 半程勇者",   "才一半而已，本喵相信你能全部學會的！"),
+}
+CARD_MILESTONE_ORDER = [10, 30, 50]
+
 class StudyService:
     """
     負責陪讀模組的業務邏輯。
@@ -21,16 +33,17 @@ class StudyService:
         
         understood = progress.get("understood_count", 0)
         retry_count = len(progress.get("retry_indices", []))
-        total_answered = progress.get("understood_count", 0) + progress.get("not_sure_count", 0)
-        accuracy = int(understood / total_answered * 100) if total_answered > 0 else 0
         retry_hint = f"\n🔁 複習佇列：{retry_count} 張（下次捏肉球優先出現）" if retry_count > 0 else ""
+        titles = self._get_title(progress)
+        title_line = "\n🏅 " + "　".join(titles) if titles else ""
         return (
             f"🐾 您的陪讀進度 🐾\n"
             f"📖 目標：{progress['exam_name']}\n"
             f"⏳ 倒數：{self._calculate_countdown(progress['exam_date'])} 天\n"
+            f"🔥 連續打卡：{progress.get('streak_days', 0)} 天\n"
             f"🍖 已讀：{progress['current_index']} 張學習卡\n"
-            f"✅ 已懂：{understood} 張\n"
-            f"📊 答對率：{accuracy}%"
+            f"✅ 已懂：{understood} 張"
+            f"{title_line}"
             f"{retry_hint}\n\n"
             f"點擊下方選單或輸入「捏肉球」來讀書喵！"
         )
@@ -193,10 +206,25 @@ class StudyService:
             self.send_next_card(reply_token, user_id)
             return
 
+        # 社群人數（update 後才計，才包含自己）
+        today_count = notion_service.count_today_checkins()
+
+        # 下一個 cards 里程碑提示
+        next_ms = self._get_next_card_milestone(progress.get("understood_count", 0))
+        milestone_hint = f"再 {next_ms[0]} 張就達成「{next_ms[1]}」喵！" if next_ms else None
+
+        # streak 里程碑（剛好達到才顯示）
+        streak_msg = self._check_streak_milestone(streak)
+
         # 回傳打卡訊息
         countdown = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
         exam_name = progress.get("exam_name") if progress.get("exam_name") != "未設定" else None
-        line_service.reply_check_in(reply_token, streak, exam_name, countdown)
+        line_service.reply_check_in(
+            reply_token, streak, exam_name, countdown,
+            today_checkin_count=today_count,
+            next_milestone_hint=milestone_hint,
+            streak_milestone_msg=streak_msg,
+        )
 
     def send_next_card(self, reply_token: str, user_id: str, skip_retry: bool = False):
         """
@@ -241,11 +269,20 @@ class StudyService:
         使用者點「✅ 懂了」：
         - 複習卡：從 retry_indices 移除，不推進 current_index
         - 新卡：推進 current_index
+        里程碑達成時用 push_text 推播（reply_token 留給 send_next_card）。
         """
+        progress = notion_service.get_user_progress(user_id)
+        old_understood = progress.get("understood_count", 0) if progress else 0
+
         if is_retry:
             notion_service.update_user_progress(user_id, {"remove_retry": card_index, "increment_understood": True})
         else:
             notion_service.update_user_progress(user_id, {"current_index": card_index, "increment_understood": True})
+
+        milestone_msg = self._check_card_milestone(old_understood, old_understood + 1)
+        if milestone_msg:
+            line_service.push_text(user_id, milestone_msg)
+
         self.send_next_card(reply_token, user_id)
 
     def handle_card_not_sure(self, reply_token: str, user_id: str, card_index: int, is_retry: bool = False):
@@ -286,6 +323,41 @@ class StudyService:
             return "喵！！！就是今天！主人加油，本喵在這邊幫您集氣喵！🐾🔥"
         else:
             return f"距離【{progress['exam_name']}】還有 {days} 天喵！主人要持續餵食（讀書）喔，本喵會陪著你的！🐾"
+
+    def _get_title(self, progress: dict) -> list[str]:
+        """動態計算已達成的所有稱號。"""
+        streak = progress.get("streak_days", 0)
+        understood = progress.get("understood_count", 0)
+        titles = []
+        for days in sorted(STREAK_MILESTONES, reverse=True):
+            if streak >= days:
+                titles.append(STREAK_MILESTONES[days][0])
+        for count in sorted(CARD_MILESTONES, reverse=True):
+            if understood >= count:
+                titles.append(CARD_MILESTONES[count][0])
+        return titles
+
+    def _get_next_card_milestone(self, understood: int) -> tuple[int, str] | None:
+        """回傳 (還差N張, 稱號名稱) 或 None。"""
+        for threshold in CARD_MILESTONE_ORDER:
+            if understood < threshold:
+                return (threshold - understood, CARD_MILESTONES[threshold][0])
+        return None
+
+    def _check_streak_milestone(self, streak: int) -> str | None:
+        """只在剛好達到門檻時回傳慶祝訊息。"""
+        if streak in STREAK_MILESTONES:
+            title, flavor = STREAK_MILESTONES[streak]
+            return f"✨ 達成稱號「{title}」！{flavor}"
+        return None
+
+    def _check_card_milestone(self, old: int, new: int) -> str | None:
+        """old < threshold <= new 避免跳號時漏觸發。"""
+        for threshold in CARD_MILESTONE_ORDER:
+            if old < threshold <= new:
+                title, flavor = CARD_MILESTONES[threshold]
+                return f"🎉 已讀 {new} 張學習卡！達成稱號「{title}」！\n{flavor}"
+        return None
 
     def _derive_exam_type(self, exam_name: str) -> str:
         """從 exam_name 推導 Notion Exam_Type Select 值。"""
