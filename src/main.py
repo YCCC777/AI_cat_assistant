@@ -171,7 +171,7 @@ async def handle_text_message(event: MessageEvent):
         return
 
     if message_text in ["捏肉球", "讀書", "學習卡"]:
-        study_service.send_next_card(reply_token, user_id)
+        study_service.handle_pinch_paw(reply_token, user_id)
         return
 
     if message_text in ["倒數", "考試"]:

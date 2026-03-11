@@ -105,6 +105,8 @@ class NotionService:
                     "understood_count": int(props["Understood_Count"]["number"] or 0) if props.get("Understood_Count") and props["Understood_Count"]["number"] is not None else 0,
                     "not_sure_count": int(props["Not_Sure_Count"]["number"] or 0) if props.get("Not_Sure_Count") and props["Not_Sure_Count"]["number"] is not None else 0,
                     "retry_indices": json.loads(props["Retry_Indices"]["rich_text"][0]["text"]["content"]) if props.get("Retry_Indices") and props["Retry_Indices"]["rich_text"] else [],
+                    "last_check_in": props["Last_Check_In_Date"]["date"]["start"] if props.get("Last_Check_In_Date") and props["Last_Check_In_Date"]["date"] else None,
+                    "streak_days": int(props["Streak_Days"]["number"] or 0) if props.get("Streak_Days") and props["Streak_Days"]["number"] is not None else 0,
                 }
             return None
         except Exception as e:
@@ -147,6 +149,10 @@ class NotionService:
                 properties["Retry_Indices"] = {"rich_text": [{"text": {"content": json.dumps(cur_retry)}}]}
             if data.get("clear_retry"):
                 properties["Retry_Indices"] = {"rich_text": [{"text": {"content": "[]"}}]}
+            if "check_in_date" in data:
+                properties["Last_Check_In_Date"] = {"date": {"start": data["check_in_date"]}}
+            if "streak_days" in data:
+                properties["Streak_Days"] = {"number": data["streak_days"]}
 
             # 更新最後互動時間
             from datetime import datetime

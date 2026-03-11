@@ -202,17 +202,43 @@ class LineService:
         except Exception as e:
             logger.error(f"reply_messages 失敗: {str(e)}")
 
-    def reply_card_question(self, reply_token: str, chapter: str, card_index: int, countdown_days: int | None = None, question: str = "", is_retry: bool = False):
+    def reply_check_in(self, reply_token: str, streak: int, exam_name: str | None, countdown: int | None):
+        """
+        每日第一次捏肉球的打卡訊息，附「翻開今日學習卡」Quick Reply 按鈕。
+        """
+        if streak == 1:
+            streak_line = "🐾 今天開始連續打卡！本喵幫你記下來了喵！"
+        else:
+            streak_line = f"🐾 連續第 {streak} 天打卡！本喵都快被主人感動哭了喵！"
+
+        if exam_name and countdown is not None:
+            if countdown > 0:
+                exam_line = f"⏰ 距離【{exam_name}】還有 {countdown} 天，每天一張卡，主人一定行的！"
+            elif countdown == 0:
+                exam_line = f"⏰ 今天就是【{exam_name}】考試日！全力以赴喵！🔥"
+            else:
+                exam_line = f"⏰ 【{exam_name}】考試已過，辛苦了喵！繼續保持學習習慣！🐾"
+        else:
+            exam_line = "還沒設定考試目標喔！點「陪讀設定」來設定吧～"
+
+        text = f"{streak_line}\n{exam_line}"
+        qr = QuickReply(items=[
+            QuickReplyItem(action=MessageAction(label="📖 翻開今日學習卡", text="捏肉球"))
+        ])
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text, quick_reply=qr)])
+            )
+        except Exception as e:
+            logger.error(f"reply_check_in 失敗: {str(e)}")
+
+    def reply_card_question(self, reply_token: str, chapter: str, card_index: int, question: str = "", is_retry: bool = False):
         """
         翻牌第一則：出題，顯示章節名稱與題目，附「看解答」Postback Quick Reply。
         複習卡標示 🔁，postback 帶 is_retry=1 供後續識別。
         """
         prefix = "🔁 複習卡" if is_retry else "📖 學習卡"
         lines = [f"{prefix} #{card_index}", f"💡【{chapter}】"]
-        if countdown_days is not None and countdown_days > 0:
-            lines.append(f"⏰ 還有 {countdown_days} 天就考試了！")
-        elif countdown_days == 0:
-            lines.append("⏰ 今天就是考試日！全力以赴喵！")
         if question:
             lines.append(f"\n❓ {question}")
         else:

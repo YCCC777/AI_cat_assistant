@@ -153,6 +153,46 @@ class StudyService:
             options.append((label[:20], data, display))
         return options
 
+    def handle_pinch_paw(self, reply_token: str, user_id: str):
+        """
+        捏肉球統一入口。
+        今天第一次：打卡（更新連續天數）→ 回傳打卡訊息 + Quick Reply 按鈕「翻開今日學習卡」。
+        今天已打卡：直接發學習卡。
+        """
+        progress = notion_service.get_user_progress(user_id)
+        if not progress:
+            line_service.reply_text(reply_token, "喵？要先設定考試目標才能捏肉球喔！請點選「陪讀設定」或輸入「陪讀設定」查看格式。")
+            return
+
+        today_str = datetime.now().date().isoformat()
+        last_check_in = progress.get("last_check_in")
+
+        if last_check_in == today_str:
+            # 今天已打卡，直接發學習卡
+            self.send_next_card(reply_token, user_id)
+            return
+
+        # 計算連續天數
+        streak = progress.get("streak_days", 0)
+        if last_check_in:
+            from datetime import date
+            last_date = datetime.strptime(last_check_in, "%Y-%m-%d").date()
+            diff = (datetime.now().date() - last_date).days
+            streak = streak + 1 if diff == 1 else 1
+        else:
+            streak = 1
+
+        # 更新打卡記錄
+        notion_service.update_user_progress(user_id, {
+            "check_in_date": today_str,
+            "streak_days": streak,
+        })
+
+        # 回傳打卡訊息
+        countdown = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
+        exam_name = progress.get("exam_name") if progress.get("exam_name") != "未設定" else None
+        line_service.reply_check_in(reply_token, streak, exam_name, countdown)
+
     def send_next_card(self, reply_token: str, user_id: str, skip_retry: bool = False):
         """
         翻牌第一步：優先發送複習佇列中的卡，佇列空時才推進到下一張新卡。
@@ -177,8 +217,7 @@ class StudyService:
             line_service.reply_all_cards_done(reply_token)
             return
 
-        countdown_days = self._calculate_countdown(progress["exam_date"]) if progress.get("exam_date") else None
-        line_service.reply_card_question(reply_token, card["chapter"], card_index, countdown_days, card.get("question", ""), is_retry=is_retry)
+        line_service.reply_card_question(reply_token, card["chapter"], card_index, card.get("question", ""), is_retry=is_retry)
 
     def handle_reveal_card(self, reply_token: str, card_index: int, is_retry: bool = False):
         """
