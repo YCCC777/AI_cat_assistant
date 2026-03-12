@@ -249,7 +249,8 @@ class LineService:
 
         text = "\n".join(lines)
         qr = QuickReply(items=[
-            QuickReplyItem(action=MessageAction(label="📖 翻開今日學習卡", text="捏肉球"))
+            QuickReplyItem(action=MessageAction(label="📖 翻開今日學習卡", text="捏肉球")),
+            QuickReplyItem(action=MessageAction(label="🍱 去刷題", text="餵罐罐")),
         ])
         try:
             self.messaging_api.reply_message(
