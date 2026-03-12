@@ -43,12 +43,11 @@ class LineService:
             # 1. 定義 Rich Menu 結構 (2500x1686 或 2500x843)
             # 這裡假設是一個 2500x843 的選單，分三個區域
             rich_menu_request = RichMenuRequest(
-                size=RichMenuSize(width=2500, height=1686),
+                size=RichMenuSize(width=2500, height=843),
                 selected=True,
                 name="貓咪助手功能選單",
                 chat_bar_text="點我打開選單喵！🐾",
                 areas=[
-                    # 上排
                     RichMenuArea(
                         bounds=RichMenuBounds(x=0, y=0, width=833, height=843),
                         action=MessageAction(label="AI 課程", text="AI 課程")
@@ -59,20 +58,7 @@ class LineService:
                     ),
                     RichMenuArea(
                         bounds=RichMenuBounds(x=1667, y=0, width=833, height=843),
-                        action=MessageAction(label="陪讀設定", text="陪讀設定")
-                    ),
-                    # 下排
-                    RichMenuArea(
-                        bounds=RichMenuBounds(x=0, y=843, width=833, height=843),
-                        action=MessageAction(label="捏肉球", text="捏肉球")
-                    ),
-                    RichMenuArea(
-                        bounds=RichMenuBounds(x=833, y=843, width=834, height=843),
-                        action=MessageAction(label="餵罐罐", text="餵罐罐")
-                    ),
-                    RichMenuArea(
-                        bounds=RichMenuBounds(x=1667, y=843, width=833, height=843),
-                        action=MessageAction(label="讀書進度", text="讀書進度")
+                        action=MessageAction(label="陪讀專區", text="貓咪陪讀")
                     ),
                 ]
             )
@@ -134,6 +120,14 @@ class LineService:
                     text="領取學習卡，開始今天的知識補給喵！",
                     actions=[
                         MessageAction(label="捏肉球領學習卡", text="捏肉球")
+                    ]
+                ),
+                CarouselColumn(
+                    thumbnail_image_url="https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/card_learning.png?v=3",
+                    title="餵罐罐",
+                    text="刷題練習，答對就給你開罐罐喵！",
+                    actions=[
+                        MessageAction(label="開始刷題", text="餵罐罐")
                     ]
                 ),
                 CarouselColumn(
