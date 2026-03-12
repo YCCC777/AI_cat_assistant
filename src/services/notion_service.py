@@ -2,7 +2,9 @@ from notion_client import Client
 import httpx
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+TW_TZ = timezone(timedelta(hours=8))
 from src.utils.config import settings
 from src.models.course import CourseInfo
 
@@ -252,7 +254,7 @@ class NotionService:
         if not self.notion or not self.user_db_id:
             return 0
         try:
-            today_str = datetime.now().date().isoformat()
+            today_str = datetime.now(TW_TZ).date().isoformat()
             r = httpx.post(
                 f"https://api.notion.com/v1/databases/{self.user_db_id}/query",
                 headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
@@ -264,6 +266,237 @@ class NotionService:
         except Exception as e:
             logger.error(f"count_today_checkins 失敗: {str(e)}")
             return 0
+
+    # ──────────────────────────────────────────────
+    # 刷題系統（Quiz）
+    # ──────────────────────────────────────────────
+
+    def get_quiz_question(self, qid: str) -> dict | None:
+        """以 Question_ID 取得一道刷題題目。"""
+        if not self.notion or not settings.NOTION_QUIZ_DB_ID:
+            return None
+        try:
+            r = httpx.post(
+                f"https://api.notion.com/v1/databases/{settings.NOTION_QUIZ_DB_ID}/query",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={"filter": {"property": "Question_ID", "title": {"equals": qid}}},
+                timeout=15,
+            )
+            r.raise_for_status()
+            results = r.json().get("results")
+            if results:
+                return self._parse_quiz_question(results[0])
+            return None
+        except Exception as e:
+            logger.error(f"get_quiz_question 失敗 qid={qid}: {e}")
+            return None
+
+    def get_all_quiz_question_ids(self, exam_type: str, subjects: list[str] | None = None) -> list[str]:
+        """
+        取得指定 exam_type 的所有 Question_ID（供組建 session pool 用）。
+        subjects: 中級選考科目，e.g. ["科目一", "科目三"]；初級傳 None 不過濾科目。
+        """
+        if not self.notion or not settings.NOTION_QUIZ_DB_ID:
+            return []
+        try:
+            # 建立 filter：初級只過濾 Exam_Type；中級再加 Subject OR 條件
+            if subjects:
+                base_filter = {
+                    "and": [
+                        {"property": "Exam_Type", "select": {"equals": exam_type}},
+                        {"or": [
+                            {"property": "Subject", "select": {"equals": s}} for s in subjects
+                        ]},
+                    ]
+                }
+            else:
+                base_filter = {"property": "Exam_Type", "select": {"equals": exam_type}}
+
+            ids = []
+            cursor = None
+            while True:
+                body: dict = {"filter": base_filter, "page_size": 100}
+                if cursor:
+                    body["start_cursor"] = cursor
+                r = httpx.post(
+                    f"https://api.notion.com/v1/databases/{settings.NOTION_QUIZ_DB_ID}/query",
+                    headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                    json=body,
+                    timeout=20,
+                )
+                r.raise_for_status()
+                data = r.json()
+                for page in data.get("results", []):
+                    title = page["properties"]["Question_ID"]["title"]
+                    if title:
+                        ids.append(title[0]["plain_text"])
+                if not data.get("has_more"):
+                    break
+                cursor = data.get("next_cursor")
+            return ids
+        except Exception as e:
+            logger.error(f"get_all_quiz_question_ids 失敗: {e}")
+            return []
+
+    def get_random_quiz_question(self, exam_type: str, exclude_ids: list[str]) -> dict | None:
+        """
+        取一道隨機題目（Python-side random）。
+        exam_type 過濾 + 排除 exclude_ids（已答過的）。
+        如果所有題都答過，直接回傳 None（由呼叫端決定是否 reset）。
+        """
+        if not self.notion or not settings.NOTION_QUIZ_DB_ID:
+            return None
+        try:
+            all_questions = []
+            cursor = None
+            while True:
+                body: dict = {
+                    "filter": {"property": "Exam_Type", "select": {"equals": exam_type}},
+                    "page_size": 100,
+                }
+                if cursor:
+                    body["start_cursor"] = cursor
+                r = httpx.post(
+                    f"https://api.notion.com/v1/databases/{settings.NOTION_QUIZ_DB_ID}/query",
+                    headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                    json=body,
+                    timeout=20,
+                )
+                r.raise_for_status()
+                data = r.json()
+                all_questions.extend(data.get("results", []))
+                if not data.get("has_more"):
+                    break
+                cursor = data.get("next_cursor")
+
+            exclude_set = set(exclude_ids)
+            pool = [q for q in all_questions
+                    if q["properties"]["Question_ID"]["title"][0]["plain_text"] not in exclude_set]
+            if not pool:
+                return None
+            import random
+            return self._parse_quiz_question(random.choice(pool))
+        except Exception as e:
+            logger.error(f"get_random_quiz_question 失敗: {e}")
+            return None
+
+    def _parse_quiz_question(self, page: dict) -> dict:
+        """從 Notion page dict 解析成 quiz question dict。"""
+        p = page["properties"]
+        def rt(field): return p[field]["rich_text"][0]["text"]["content"] if p.get(field, {}).get("rich_text") else ""
+        def sel(field): return p[field]["select"]["name"] if p.get(field, {}).get("select") else ""
+        return {
+            "qid":            p["Question_ID"]["title"][0]["plain_text"] if p["Question_ID"]["title"] else "",
+            "exam_type":      sel("Exam_Type"),
+            "chapter":        rt("Chapter"),
+            "source":         sel("Source"),
+            "question":       rt("Question"),
+            "option_a":       rt("Option_A"),
+            "option_b":       rt("Option_B"),
+            "option_c":       rt("Option_C"),
+            "option_d":       rt("Option_D"),
+            "correct_answer": sel("Correct_Answer"),
+            "explanation":    rt("Explanation"),
+        }
+
+    def get_quiz_progress(self, user_id: str, exam_type: str = "") -> dict | None:
+        """取得用戶的刷題進度（按 User_ID + Exam_Type 隔離初級與中級）。"""
+        if not self.notion or not settings.NOTION_QUIZ_PROGRESS_DB_ID:
+            return None
+        try:
+            if exam_type:
+                query_filter = {
+                    "and": [
+                        {"property": "User_ID",   "title":     {"equals": user_id}},
+                        {"property": "Exam_Type", "rich_text": {"equals": exam_type}},
+                    ]
+                }
+            else:
+                query_filter = {"property": "User_ID", "title": {"equals": user_id}}
+
+            r = httpx.post(
+                f"https://api.notion.com/v1/databases/{settings.NOTION_QUIZ_PROGRESS_DB_ID}/query",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={"filter": query_filter},
+                timeout=15,
+            )
+            r.raise_for_status()
+            results = r.json().get("results")
+            if results:
+                p = results[0]["properties"]
+                def rt(field): return p[field]["rich_text"][0]["text"]["content"] if p.get(field, {}).get("rich_text") else ""
+                wrong_raw = rt("Wrong_Queue")
+                answered_raw = rt("Answered_IDs")
+                subjects_raw = rt("Selected_Subjects")   # 中級選考科目，初級為空
+                return {
+                    "page_id":          results[0]["id"],
+                    "total_answered":   int(p["Total_Answered"]["number"] or 0) if p.get("Total_Answered") else 0,
+                    "correct_count":    int(p["Correct_Count"]["number"] or 0) if p.get("Correct_Count") else 0,
+                    "wrong_queue":      json.loads(wrong_raw) if wrong_raw else [],
+                    "answered_ids":     json.loads(answered_raw) if answered_raw else [],
+                    "selected_subjects": json.loads(subjects_raw) if subjects_raw else [],  # 中級用
+                }
+            return None
+        except Exception as e:
+            logger.error(f"get_quiz_progress 失敗: {e}")
+            return None
+
+    def update_quiz_progress(self, user_id: str, data: dict, exam_type: str = "") -> bool:
+        """
+        更新或建立用戶刷題進度（按 exam_type 隔離）。
+        支援 keys：
+          increment_total, increment_correct,
+          add_answered, reset_answered,
+          add_wrong_queue, remove_wrong_queue
+        """
+        if not self.notion or not settings.NOTION_QUIZ_PROGRESS_DB_ID:
+            return False
+        try:
+            progress = self.get_quiz_progress(user_id, exam_type=exam_type)
+            props: dict = {}
+
+            total = progress["total_answered"] if progress else 0
+            correct = progress["correct_count"] if progress else 0
+            wrong_q: list = list(progress["wrong_queue"]) if progress else []
+            answered: list = list(progress["answered_ids"]) if progress else []
+
+            if data.get("increment_total"):
+                props["Total_Answered"] = {"number": total + 1}
+            if data.get("increment_correct"):
+                props["Correct_Count"] = {"number": correct + 1}
+            if "add_answered" in data:
+                qid = data["add_answered"]
+                if qid not in answered:
+                    answered.append(qid)
+                props["Answered_IDs"] = {"rich_text": [{"text": {"content": json.dumps(answered)}}]}
+            if data.get("reset_answered"):
+                props["Answered_IDs"] = {"rich_text": [{"text": {"content": "[]"}}]}
+            if "add_wrong_queue" in data:
+                qid = data["add_wrong_queue"]
+                if qid not in wrong_q and len(wrong_q) < 20:
+                    wrong_q.append(qid)
+                props["Wrong_Queue"] = {"rich_text": [{"text": {"content": json.dumps(wrong_q)}}]}
+            if "remove_wrong_queue" in data:
+                qid = data["remove_wrong_queue"]
+                wrong_q = [q for q in wrong_q if q != qid]
+                props["Wrong_Queue"] = {"rich_text": [{"text": {"content": json.dumps(wrong_q)}}]}
+
+            if not props:
+                return True
+
+            if progress:
+                self.notion.pages.update(page_id=progress["page_id"], properties=props)
+            else:
+                props["User_ID"]   = {"title":     [{"text": {"content": user_id}}]}
+                props["Exam_Type"] = {"rich_text": [{"text": {"content": exam_type}}]}
+                self.notion.pages.create(
+                    parent={"database_id": settings.NOTION_QUIZ_PROGRESS_DB_ID},
+                    properties=props,
+                )
+            return True
+        except Exception as e:
+            logger.error(f"update_quiz_progress 失敗: {e}")
+            return False
 
     def create_card_report(self, card_id: int, reporter_id: str, content: str) -> bool:
         if not self.notion or not self.report_db_id:

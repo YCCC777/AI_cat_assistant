@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from src.services.notion_service import notion_service
 from src.services.line_service import line_service
 from src.utils.exam_dates import get_exam_dates, get_all_exam_names
@@ -177,7 +177,8 @@ class StudyService:
             line_service.reply_text(reply_token, "喵？要先設定考試目標才能捏肉球喔！請點選「陪讀設定」或輸入「陪讀設定」查看格式。")
             return
 
-        today_str = datetime.now().date().isoformat()
+        TW_TZ = timezone(timedelta(hours=8))
+        today_str = datetime.now(TW_TZ).date().isoformat()
         last_check_in = progress.get("last_check_in")
         # Notion date 有時會帶時區，取前 10 字元確保只比較日期
         last_check_in_date = (last_check_in or "")[:10]
@@ -191,7 +192,7 @@ class StudyService:
         streak = progress.get("streak_days", 0)
         if last_check_in_date:
             last_date = datetime.strptime(last_check_in_date, "%Y-%m-%d").date()
-            diff = (datetime.now().date() - last_date).days
+            diff = (datetime.now(TW_TZ).date() - last_date).days
             streak = streak + 1 if diff == 1 else 1
         else:
             streak = 1
