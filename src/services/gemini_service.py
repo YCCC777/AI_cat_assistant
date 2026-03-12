@@ -70,6 +70,8 @@ class GeminiService:
             if isinstance(data, list):
                 return [CourseInfo(**item) for item in data]
             else:
+                if not data.get("is_course"):
+                    return CourseInfo(is_course=False, reason=data.get("reason"))
                 return CourseInfo(**data)
         except Exception as e:
             raise e

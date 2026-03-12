@@ -7,6 +7,7 @@ from src.services.gemini_service import gemini_service
 from src.services.calendar_service import calendar_service
 from src.services.notion_service import notion_service
 from src.services.study_service import study_service
+from src.services.quiz_service import quiz_service
 from src.utils.config import settings
 from src.utils.deduplicator import deduplicator
 from src.utils.limiter import token_limiter
@@ -24,6 +25,10 @@ parser = WebhookParser(settings.LINE_CHANNEL_SECRET)
 
 # 等待使用者輸入回報內容的狀態 { user_id: card_index }
 pending_reports: dict[str, int] = {}
+# 等待使用者輸入刷題回報內容的狀態 { user_id: qid }
+pending_quiz_reports: dict[str, str] = {}
+# 刷題本場得分 { user_id: {"correct": int, "total": int, ...} }
+quiz_sessions: dict[str, dict] = {}
 
 
 @app.get("/")
@@ -94,6 +99,26 @@ async def handle_postback(event: PostbackEvent):
         elif action == "restart_review":
             study_service.handle_restart_review(reply_token, user_id)
 
+        elif action == "report_quiz":
+            qid = params.get("qid", "")
+            pending_quiz_reports[user_id] = qid
+            line_service.reply_text(
+                reply_token,
+                f"喵？主人覺得題目 {qid} 哪裡有問題呢？\n請直接輸入您的意見（例如：答案有誤、選項看不懂），本喵會轉達給出題老師！🐾"
+            )
+
+        elif action == "quiz_select_subject":
+            subject = params.get("subject", "")
+            quiz_service.handle_subject_selected(reply_token, user_id, subject, quiz_sessions)
+
+        elif action == "quiz_answer":
+            qid = params.get("qid", "")
+            choice = params.get("choice", "")
+            quiz_service.handle_quiz_answer(reply_token, user_id, qid, choice, quiz_sessions)
+
+        elif action == "quiz_next":
+            quiz_service.handle_quiz_next(reply_token, user_id, quiz_sessions)
+
         elif action == "report_card":
             card_index = int(params.get("index", 0))
             pending_reports[user_id] = card_index
@@ -147,6 +172,16 @@ async def handle_text_message(event: MessageEvent):
             line_service.reply_text(reply_token, "喵嗚...回報時出了點問題，請稍後再試或聯絡管理員喵～🐾")
         return
 
+    if user_id in pending_quiz_reports:
+        qid = pending_quiz_reports.pop(user_id)
+        success = notion_service.create_card_report(qid, user_id, message_text)
+        if success:
+            line_service.reply_text(reply_token, "已向本喵的出題老師回報這道題，感謝主人協助讓題庫更完善！🐾")
+            line_service.push_text(settings.ADMIN_LINE_USER_ID, f"⚠️ 刷題回報\n題目編號：{qid}\n回報者：{user_id}\n內容：{message_text}")
+        else:
+            line_service.reply_text(reply_token, "喵嗚...回報時出了點問題，請稍後再試或聯絡管理員喵～🐾")
+        return
+
     # 2. 陪讀模組指令
     if message_text in ["陪讀設定", "報名", "陪讀報名"]:
         # 兩層選單：第一層選考試種類
@@ -178,6 +213,14 @@ async def handle_text_message(event: MessageEvent):
             prefix = "喵～打字容易出錯，請點下方按鈕來選擇考試場次，本喵幫你記得準準的！🐾"
         exam_options = study_service.get_exam_type_options()
         line_service.reply_with_quick_reply_postback(reply_token, prefix, exam_options)
+        return
+
+    if message_text in ["餵罐罐", "刷題"]:
+        quiz_service.handle_feed_can(reply_token, user_id, quiz_sessions)
+        return
+
+    if message_text == "結束刷題":
+        quiz_service.handle_quiz_end(reply_token, user_id, quiz_sessions)
         return
 
     if message_text in ["捏肉球", "讀書", "學習卡"]:

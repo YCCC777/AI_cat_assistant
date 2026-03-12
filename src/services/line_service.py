@@ -43,23 +43,37 @@ class LineService:
             # 1. 定義 Rich Menu 結構 (2500x1686 或 2500x843)
             # 這裡假設是一個 2500x843 的選單，分三個區域
             rich_menu_request = RichMenuRequest(
-                size=RichMenuSize(width=2500, height=843),
+                size=RichMenuSize(width=2500, height=1686),
                 selected=True,
                 name="貓咪助手功能選單",
                 chat_bar_text="點我打開選單喵！🐾",
                 areas=[
+                    # 上排
                     RichMenuArea(
                         bounds=RichMenuBounds(x=0, y=0, width=833, height=843),
-                        action=MessageAction(label="AI 課程查詢", text="AI 課程查詢")
+                        action=MessageAction(label="AI 課程", text="AI 課程")
                     ),
                     RichMenuArea(
                         bounds=RichMenuBounds(x=833, y=0, width=834, height=843),
-                        action=MessageAction(label="AI 資訊", text="AI 考試資訊")
+                        action=MessageAction(label="AI 資訊", text="AI 資訊")
                     ),
                     RichMenuArea(
                         bounds=RichMenuBounds(x=1667, y=0, width=833, height=843),
-                        action=MessageAction(label="貓咪陪讀", text="貓咪陪讀")
-                    )
+                        action=MessageAction(label="陪讀設定", text="陪讀設定")
+                    ),
+                    # 下排
+                    RichMenuArea(
+                        bounds=RichMenuBounds(x=0, y=843, width=833, height=843),
+                        action=MessageAction(label="捏肉球", text="捏肉球")
+                    ),
+                    RichMenuArea(
+                        bounds=RichMenuBounds(x=833, y=843, width=834, height=843),
+                        action=MessageAction(label="餵罐罐", text="餵罐罐")
+                    ),
+                    RichMenuArea(
+                        bounds=RichMenuBounds(x=1667, y=843, width=833, height=843),
+                        action=MessageAction(label="讀書進度", text="讀書進度")
+                    ),
                 ]
             )
 
@@ -432,6 +446,7 @@ class LineService:
         correct_letter = question["correct_answer"]
         correct_option = question.get(f"option_{correct_letter.lower()}", "")
         explanation = question.get("explanation", "（無解說）")
+        explanation = explanation.replace("<br>", "\n").replace("\\[", "[").replace("\\]", "]")
 
         if is_correct:
             header = "✅ 答對了！主人真厲害喵！🐾"

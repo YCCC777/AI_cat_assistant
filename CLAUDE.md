@@ -82,8 +82,9 @@ src/
 │   ├── line_service.py  # LINE Bot API 封裝 (reply, push, rich menu, carousel, quick reply)
 │   ├── gemini_service.py# Gemini AI 解析服務 (google-genai, native async)
 │   ├── calendar_service.py # Google Calendar API
-│   ├── notion_service.py   # Notion API (課程DB + 陪讀進度DB + 學習卡DB)
-│   └── study_service.py    # 陪讀模組業務邏輯
+│   ├── notion_service.py   # Notion API (課程DB + 陪讀進度DB + 學習卡DB + 刷題DB)
+│   ├── study_service.py    # 陪讀模組業務邏輯
+│   └── quiz_service.py     # 刷題模組業務邏輯（餵罐罐）⚠️ 尚未部署
 └── utils/
     ├── config.py        # pydantic-settings 環境變數設定
     ├── deduplicator.py  # 重複訊息過濾
@@ -100,7 +101,8 @@ src/
 | `AI 課程` | 顯示 Google Calendar 未來 7 天課程 |
 | `AI 考試資訊` | 顯示 iPAS 最新消息（爬蟲，7天快取） |
 | `捏肉球` | 今天第一次 → 打卡儀式（連續天數 + 倒數 + 社群人數）；已打卡 → 直接發學習卡 |
-| `餵罐罐` | 死碼，規劃改為刷題功能 |
+| `餵罐罐` / `刷題` | 刷題系統入口 → 選科 → 50題隨機 pool → 作答 loop → 成績報告 ⚠️ 尚未部署 |
+| `結束刷題` | 中途結束刷題，顯示本場成績 ⚠️ 尚未部署 |
 | `讀書進度` | 顯示進度 + 倒數 + 連續打卡天數 + 已達成稱號 |
 | `貓咪陪讀` | 顯示陪讀 carousel（3張卡） |
 | `報名` / `陪讀設定` | 兩層 Quick Reply 選單（考試種類 → 日期），**不接受文字格式** |
@@ -130,6 +132,8 @@ NOTION_DATABASE_ID=
 NOTION_USER_PROGRESS_DB_ID=              # 可選 (陪讀功能)
 NOTION_LEARNING_CARD_DB_ID=             # 可選 (陪讀功能)
 ADMIN_LINE_USER_ID=
+NOTION_QUIZ_DB_ID=               # 刷題題庫 DB（已建立，⚠️ 尚未部署）
+NOTION_QUIZ_PROGRESS_DB_ID=      # 刷題用戶進度 DB（已建立，⚠️ 尚未部署）
 ```
 
 ## 輪播圖片路徑規則
@@ -163,10 +167,57 @@ Rich Menu 圖片：`image/rich_menu.jpg`（Dockerfile build 時自動從 GitHub 
 | 2026-03-11 | Learning Card DB 加 Exam_Type 過濾，防止初級/中級卡混用 |
 | 2026-03-11 | 文字格式「報名 xxx」改導向按鈕選單，不再接受文字報名 |
 | 2026-03-11 | 互助激勵系統上線：稱號（動態計算）、里程碑慶祝 push、社群打卡人數、進度提示 |
+| 2026-03-11 | 餵罐罐刷題系統設計完成（quiz_service.py 新建）⚠️ 尚未部署，等題庫準備好後推送 |
 
 ## 已知待改項目
 
 （目前無待修復 Bug）
+
+## 刷題系統（餵罐罐）⚠️ 尚未部署
+
+### 部署前檢查清單
+- [ ] 初級題庫填入 Quiz_DB（考古題 + 樣題優先）
+- [ ] 確認 User_Progress_DB 中無中級報名記錄（避免未潤的中級學習卡流出）
+- [ ] 部署後測試：傳「餵罐罐」→ 選科 → 作答 → 對錯回饋 → 下一題 → 50題成績
+- [ ] 部署後測試：答案開獎後點「⚠️ 回報問題」→ 輸入意見 → 管理員收到通知
+
+### Quiz_DB 欄位規格
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `Question_ID` | Title | `Q001`, `Q002`... |
+| `Exam_Type` | Select | `iPAS AI應用規劃師(初級)` / `iPAS AI應用規劃師(中級)` |
+| `Subject` | Select | `科目一` / `科目二` / `科目三` |
+| `Chapter` | Rich Text | 章節名稱 |
+| `Source` | Select | `考古題` / `114考古題` / `官方樣題` / `AI生成` / `資深考官專家題` |
+| `Question` | Rich Text | 題目內容 |
+| `Option_A` ~ `Option_D` | Rich Text | 四個選項 |
+| `Correct_Answer` | Select | `A` / `B` / `C` / `D` |
+| `Explanation` | Rich Text | 解說（為何對 + 為何其他選項錯）|
+
+### Quiz_Progress_DB 欄位規格
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `User_ID` | Title | LINE User ID |
+| `Exam_Type` | Rich Text | 隔離初級/中級進度 |
+| `Total_Answered` | Number | 累計答題數 |
+| `Correct_Count` | Number | 累計答對數 |
+| `Wrong_Queue` | Rich Text | JSON，上一輪錯題（必出，max 20）|
+| `Answered_IDs` | Rich Text | JSON，已答過的題 |
+| `Selected_Subjects` | Rich Text | JSON，中級選考科目（初級留空）|
+
+### 刷題流程說明
+- 每輪 50 題，開始時一次組建 pool（上一輪錯題全含 + 隨機補齊）
+- 初級：固定選科（科目一 / 科目二），開始前顯示選科 Quick Reply
+- 中級：選考科目來自 `Quiz_Progress_DB.Selected_Subjects`，顯示對應科目按鈕
+- 答錯 → 記入 Wrong_Queue，**下一輪**才出現（不在當下這輪重出）
+- 刷滿 50 題 → 自動顯示成績報告；中途可傳「結束刷題」
+- 答案開獎後可點「⚠️ 回報問題」→ 寫入 `NOTION_REPORT_DB_ID`（與學習卡回報共用）+ push 通知管理員
+  - `Card_ID` 欄位存題目編號字串（e.g. `Q003`），可與學習卡回報（數字）區分
+
+### 中級上線 Checklist（程式碼已備好，補資料即可）
+- [ ] Quiz_DB 填入中級各科題目（`Subject` 欄位標記）
+- [ ] 報名流程加「選科」步驟，寫入 `Quiz_Progress_DB.Selected_Subjects`
+- [ ] 中級學習卡潤稿完成
 
 ## Learning Card DB 擴充架構
 
