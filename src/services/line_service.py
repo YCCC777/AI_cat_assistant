@@ -216,28 +216,29 @@ class LineService:
         每日第一次捏肉球的打卡訊息，附「翻開今日學習卡」Quick Reply 按鈕。
         """
         if streak == 1:
-            streak_line = "🐾 今天開始連續打卡！本喵幫你記下來了喵！"
+            streak_line = "🐾 第 1 天打卡！\n  本喵幫你記下來了喵！"
         else:
-            streak_line = f"🐾 連續第 {streak} 天打卡！本喵都快被主人感動哭了喵！"
+            streak_line = f"🐾 連續第 {streak} 天打卡！\n  本喵都快被主人感動哭了喵！"
 
         if exam_name and countdown is not None:
             if countdown > 0:
-                exam_line = f"⏰ 距離【{exam_name}】還有 {countdown} 天，每天一張卡，主人一定行的！"
+                exam_line = f"  ⏰ 考試倒數 {countdown} 天\n 目標考取： {exam_name}"
             elif countdown == 0:
-                exam_line = f"⏰ 今天就是【{exam_name}】考試日！全力以赴喵！🔥"
+                exam_line = f"  ⏰ 今天就是考試日！全力以赴喵！🔥\n 目標考取： {exam_name}"
             else:
-                exam_line = f"⏰ 【{exam_name}】考試已過，辛苦了喵！繼續保持學習習慣！🐾"
+                exam_line = f"  ⏰ 考試已過，辛苦了喵！🐾\n 目標考取： {exam_name}"
         else:
-            exam_line = "還沒設定考試目標喔！點「陪讀設定」來設定吧～"
+            exam_line = "  📝 還沒設定考試目標\n  點「陪讀設定」來設定吧！"
 
         lines = [streak_line]
         if streak_milestone_msg:
-            lines.append(streak_milestone_msg)
-        lines.append(exam_line)
+            lines.append(f"\n  {streak_milestone_msg}")
+        lines.append(f"\n{exam_line}")
         if today_checkin_count > 1:
-            lines.append(f"👥 今天有 {today_checkin_count} 位同學也在一起努力喵！")
+            lines.append(f"\n  👥 今天有 {today_checkin_count} 位夥伴一起努力")
         if next_milestone_hint:
-            lines.append(f"✨ {next_milestone_hint}")
+            lines.append(f"\n  ✨ {next_milestone_hint}")
+
         text = "\n".join(lines)
         qr = QuickReply(items=[
             QuickReplyItem(action=MessageAction(label="📖 翻開今日學習卡", text="捏肉球"))
@@ -369,6 +370,118 @@ class LineService:
         self.messaging_api.reply_message(
             ReplyMessageRequest(reply_token=reply_token, messages=messages)
         )
+
+    def reply_quiz_subject_selection(self, reply_token: str, subjects: list[str], exam_type: str = ""):
+        """
+        選科 Quick Reply（postback）。
+        初級：「初級總共有科目一、科目二，這次要刷哪一科？」
+        中級：「你報考了科目一、科目三，這次要刷哪一科？」
+        """
+        subject_labels = "、".join(subjects)
+        if "初級" in exam_type:
+            text = f"喵～初級總共有【{subject_labels}】，這次要刷哪一科的題目？"
+        else:
+            text = f"喵～你報考了【{subject_labels}】，這次要刷哪一科的題目？"
+        options = [
+            (s, f"action=quiz_select_subject&subject={s}", f"刷 {s} 的題目")
+            for s in subjects
+        ]
+        self.reply_with_quick_reply_postback(reply_token, text, options)
+
+    def reply_quiz_question(self, reply_token: str, question: dict):
+        """
+        刷題出題訊息。
+        格式：📝【Chapter】\n題目\nA) ...\nB) ...\nC) ...\nD) ...
+        Quick Reply：[A] [B] [C] [D] [結束刷題]
+        """
+        qid = question["qid"]
+        text = (
+            f"📝【{question['chapter']}】\n\n"
+            f"{question['question']}\n\n"
+            f"A) {question['option_a']}\n"
+            f"B) {question['option_b']}\n"
+            f"C) {question['option_c']}\n"
+            f"D) {question['option_d']}"
+        )
+        qr = QuickReply(items=[
+            QuickReplyItem(action=PostbackAction(
+                label="A", data=f"action=quiz_answer&qid={qid}&choice=A", display_text="選 A")),
+            QuickReplyItem(action=PostbackAction(
+                label="B", data=f"action=quiz_answer&qid={qid}&choice=B", display_text="選 B")),
+            QuickReplyItem(action=PostbackAction(
+                label="C", data=f"action=quiz_answer&qid={qid}&choice=C", display_text="選 C")),
+            QuickReplyItem(action=PostbackAction(
+                label="D", data=f"action=quiz_answer&qid={qid}&choice=D", display_text="選 D")),
+            QuickReplyItem(action=MessageAction(label="🚪 結束刷題", text="結束刷題")),
+        ])
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text, quick_reply=qr)])
+            )
+        except Exception as e:
+            logger.error(f"reply_quiz_question 失敗: {e}")
+
+    def reply_quiz_result(
+        self, reply_token: str, is_correct: bool, chosen: str,
+        question: dict, session: dict, is_final: bool = False
+    ):
+        """
+        刷題結果訊息（對錯 + 解說 + 本場得分）。
+        is_final=True 時顯示完整成績報告，不附「下一題」按鈕。
+        """
+        correct_letter = question["correct_answer"]
+        correct_option = question.get(f"option_{correct_letter.lower()}", "")
+        explanation = question.get("explanation", "（無解說）")
+
+        if is_correct:
+            header = "✅ 答對了！主人真厲害喵！🐾"
+        else:
+            header = f"😿 答錯了，別灰心喵！本喵幫你記住這題！\n\n你選：{chosen}\n正確答案：{correct_letter}) {correct_option}"
+
+        score_line = f"\n\n本場：{session['total']} 題，答對 {session['correct']} 題 🎯"
+
+        if is_final:
+            accuracy = session["correct"] / session["total"] * 100
+            if accuracy >= 80:
+                grade_msg = "🔥 太強了！主人已經準備好考試了喵！"
+            elif accuracy >= 60:
+                grade_msg = "📚 還不錯！繼續加油，本喵看好你！"
+            else:
+                grade_msg = "🐾 多刷幾次，本喵陪你一起進步！"
+            text = (
+                f"{header}\n\n"
+                f"💡 解說：\n{explanation}"
+                f"{score_line}\n\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"🎉 本場 {session['total']} 題刷完！\n"
+                f"📊 正確率：{accuracy:.0f}%\n"
+                f"{grade_msg}\n\n"
+                f"錯題本喵幫你記下來，傳「餵罐罐」隨時繼續喵！🐾"
+            )
+            # 最終結果不附下一題按鈕
+            try:
+                self.messaging_api.reply_message(
+                    ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text)])
+                )
+            except Exception as e:
+                logger.error(f"reply_quiz_result (final) 失敗: {e}")
+        else:
+            qid = question.get("qid", "")
+            text = f"{header}\n\n💡 解說：\n{explanation}{score_line}"
+            qr = QuickReply(items=[
+                QuickReplyItem(action=PostbackAction(
+                    label="➡️ 下一題", data="action=quiz_next", display_text="下一題！")),
+                QuickReplyItem(action=PostbackAction(
+                    label="⚠️ 回報問題", data=f"action=report_quiz&qid={qid}",
+                    display_text="我想回報這道題的問題")),
+                QuickReplyItem(action=MessageAction(label="🚪 結束刷題", text="結束刷題")),
+            ])
+            try:
+                self.messaging_api.reply_message(
+                    ReplyMessageRequest(reply_token=reply_token, messages=[TextMessage(text=text, quick_reply=qr)])
+                )
+            except Exception as e:
+                logger.error(f"reply_quiz_result 失敗: {e}")
 
     def push_text(self, to_user_id: str, text: str):
         """

@@ -212,7 +212,7 @@ class StudyService:
 
         # 下一個 cards 里程碑提示
         next_ms = self._get_next_card_milestone(progress.get("understood_count", 0))
-        milestone_hint = f"再 {next_ms[0]} 張就達成「{next_ms[1]}」喵！" if next_ms else None
+        milestone_hint = f"再 {next_ms[0]} 張就達成「{next_ms[1]}」成就了喵！" if next_ms else None
 
         # streak 里程碑（剛好達到才顯示）
         streak_msg = self._check_streak_milestone(streak)
