@@ -395,7 +395,7 @@ class NotionService:
             "option_b":       rt("Option_B"),
             "option_c":       rt("Option_C"),
             "option_d":       rt("Option_D"),
-            "correct_answer": sel("Correct_Answer"),
+            "correct_answer": rt("Correct_Answer"),
             "explanation":    rt("Explanation"),
         }
 
