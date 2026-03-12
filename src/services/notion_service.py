@@ -104,7 +104,7 @@ class NotionService:
                     "page_id": results[0]["id"],
                     "exam_name": props["Exam_Name"]["rich_text"][0]["text"]["content"] if props["Exam_Name"]["rich_text"] else "未設定",
                     "exam_date": props["Exam_Date"]["date"]["start"] if props["Exam_Date"]["date"] else None,
-                    "current_index": props["Current_Card_Index"]["number"] or 0,
+                    "current_index": int(props["Current_Card_Index"]["number"] or 0) if props.get("Current_Card_Index") and props["Current_Card_Index"]["number"] is not None else 0,
                     "understood_count": int(props["Understood_Count"]["number"] or 0) if props.get("Understood_Count") and props["Understood_Count"]["number"] is not None else 0,
                     "not_sure_count": int(props["Not_Sure_Count"]["number"] or 0) if props.get("Not_Sure_Count") and props["Not_Sure_Count"]["number"] is not None else 0,
                     "retry_indices": json.loads(props["Retry_Indices"]["rich_text"][0]["text"]["content"]) if props.get("Retry_Indices") and props["Retry_Indices"]["rich_text"] else [],
