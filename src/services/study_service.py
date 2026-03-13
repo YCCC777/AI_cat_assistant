@@ -231,11 +231,32 @@ class StudyService:
         """
         翻牌第一步：優先發送複習佇列中的卡，佇列空時才推進到下一張新卡。
         skip_retry=True 時強制走新卡邏輯（current_index + 1），忽略 retry 佇列。
+        若使用者透過舊 Postback 按鈕跨日使用，靜默補打卡（不送打卡慶祝訊息）。
         """
         progress = notion_service.get_user_progress(user_id)
         if not progress:
             line_service.reply_text(reply_token, "喵？要先設定考試目標才能捏肉球喔！請點選「陪讀設定」或輸入「陪讀設定」查看格式。")
             return
+
+        # 靜默補打卡：使用者今天尚未打卡但已透過 Postback 使用學習卡
+        TW_TZ = timezone(timedelta(hours=8))
+        today_str = datetime.now(TW_TZ).date().isoformat()
+        last_check_in = progress.get("last_check_in")
+        last_check_in_date = (last_check_in or "")[:10]
+        if last_check_in_date != today_str:
+            streak = progress.get("streak_days", 0)
+            if last_check_in_date:
+                last_date = datetime.strptime(last_check_in_date, "%Y-%m-%d").date()
+                diff = (datetime.now(TW_TZ).date() - last_date).days
+                streak = streak + 1 if diff == 1 else 1
+            else:
+                streak = 1
+            notion_service.update_user_progress(user_id, {
+                "check_in_date": today_str,
+                "streak_days": streak,
+            })
+            # 重新取得最新 progress（含更新後的 streak）
+            progress = notion_service.get_user_progress(user_id) or progress
 
         # P3：優先取複習佇列（除非明確要求跳過）
         retry_indices = progress.get("retry_indices", [])
@@ -373,7 +394,7 @@ class StudyService:
         if not date_str:
             return 0
         target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        today = datetime.now().date()
+        today = datetime.now(timezone(timedelta(hours=8))).date()
         return (target_date - today).days
 
 # 單例模式實例
