@@ -12,6 +12,7 @@ from linebot.v3.messaging import (
     CarouselTemplate,
     CarouselColumn,
     MessageAction,
+    URIAction,
     QuickReply,
     QuickReplyItem,
     RichMenuRequest,
@@ -492,6 +493,47 @@ class LineService:
                 )
             except Exception as e:
                 logger.error(f"reply_quiz_result 失敗: {e}")
+
+    def reply_hn_news_carousel(self, reply_token: str, news_list: list[dict]):
+        """
+        以 Carousel 顯示 HN 新聞清單。
+        每則：標題 + 摘要 + 「查看原文」連結按鈕。
+        最多顯示 10 則（LINE Carousel 上限）。
+        """
+        def truncate(s: str, max_len: int) -> str:
+            return s[:max_len - 1] + "…" if len(s) > max_len else s
+
+        columns = []
+        for item in news_list[:10]:
+            title = truncate(item["title"], 40) or "（無標題）"
+            tags_str = " ".join(f"#{t}" for t in item["tags"][:2])
+            score_str = f"⭐{item['score']}" if item["score"] else ""
+            text_parts = [p for p in [tags_str, score_str] if p]
+            if item["summary"]:
+                summary = truncate(item["summary"], 60 - len(" | ".join(text_parts)) - 3)
+                text_parts.insert(0, summary)
+            col_text = " | ".join(text_parts)[:60] or "點下方查看詳情"
+
+            actions = []
+            if item["url"]:
+                actions.append(URIAction(label="🔗 查看原文", uri=item["url"]))
+            else:
+                actions.append(MessageAction(label="AI 新聞", text="AI 資訊"))
+
+            columns.append(CarouselColumn(title=title, text=col_text, actions=actions))
+
+        try:
+            self.messaging_api.reply_message(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TemplateMessage(
+                        alt_text="📰 最新 AI 新聞喵！",
+                        template=CarouselTemplate(columns=columns)
+                    )]
+                )
+            )
+        except Exception as e:
+            logger.error(f"reply_hn_news_carousel 失敗: {str(e)}")
 
     def push_text(self, to_user_id: str, text: str):
         """

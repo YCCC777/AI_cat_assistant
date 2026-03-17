@@ -216,35 +216,72 @@ class NotionService:
             logger.error(f"獲取學習卡失敗: {str(e)}")
             return None
 
-    def get_latest_ai_news(self, limit: int = 5) -> list[dict]:
+    def _parse_news_results(self, results: list) -> list[dict]:
+        news = []
+        for item in results:
+            p = item["properties"]
+            title = p["標題"]["title"][0]["plain_text"] if p.get("標題", {}).get("title") else ""
+            url = p["連結"]["url"] if p.get("連結", {}).get("url") else ""
+            summary = p["摘要"]["rich_text"][0]["plain_text"] if p.get("摘要", {}).get("rich_text") else ""
+            tags = [t["name"] for t in p.get("主題標籤", {}).get("multi_select", [])]
+            score = float(p["評分"]["number"] or 0) if p.get("評分", {}).get("number") is not None else 0
+            lang = p["語言"]["select"]["name"] if p.get("語言", {}).get("select") else ""
+            date = p["日期"]["date"]["start"] if p.get("日期", {}).get("date") else ""
+            if title:
+                news.append({"title": title, "url": url, "summary": summary, "tags": tags, "score": score, "lang": lang, "date": date})
+        return news
+
+    def _query_news_db(self, filter_body: dict, page_size: int = 20) -> list[dict]:
+        r = httpx.post(
+            f"https://api.notion.com/v1/databases/{settings.NOTION_NEWS_DB_ID}/query",
+            headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+            json={"sorts": [{"property": "評分", "direction": "descending"}], "page_size": page_size, **filter_body},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return self._parse_news_results(r.json().get("results", []))
+
+    def get_news_by_session(self, session: str, limit: int = 5) -> list[dict]:
         """
-        從 AI_News_Database 取最新 N 則 AI 週報資料。
-        回傳 [{"content": str, "date": str}, ...] 依 News_Date 降序排列。
+        依早中晚時段從 Notion DB 取新聞，優先回傳 score > 6。
+        session: "morning" | "afternoon" | "evening"
+          - morning:   UTC 00:00-05:59  (TW 09:00 run)
+          - afternoon: UTC 06:00-11:59  (TW 15:00 run)
+          - evening:   UTC 12:00-17:59  (TW 21:00 run)
+        若該時段無資料，fallback 至最近 24 小時。
         """
         if not self.notion or not settings.NOTION_NEWS_DB_ID:
             return []
+
+        session_hours = {"morning": (0, 6), "afternoon": (6, 12), "evening": (12, 18)}
+        start_h, end_h = session_hours.get(session, (0, 6))
+
+        now_utc = datetime.now(timezone.utc)
+        today = now_utc.date()
+        start_dt = datetime(today.year, today.month, today.day, start_h, 0, 0, tzinfo=timezone.utc)
+        end_dt = datetime(today.year, today.month, today.day, end_h, 0, 0, tzinfo=timezone.utc)
+
         try:
-            r = httpx.post(
-                f"https://api.notion.com/v1/databases/{settings.NOTION_NEWS_DB_ID}/query",
-                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
-                json={
-                    "sorts": [{"property": "News_Date", "direction": "descending"}],
-                    "page_size": limit,
-                },
-                timeout=15,
-            )
-            r.raise_for_status()
-            results = r.json().get("results", [])
-            news = []
-            for item in results:
-                props = item["properties"]
-                content = props["News_Content"]["title"][0]["plain_text"] if props["News_Content"]["title"] else ""
-                date = props["News_Date"]["date"]["start"] if props["News_Date"]["date"] else ""
-                if content:
-                    news.append({"content": content, "date": date})
-            return news
+            articles = self._query_news_db({
+                "filter": {"and": [
+                    {"property": "日期", "date": {"on_or_after": start_dt.isoformat()}},
+                    {"property": "日期", "date": {"before": end_dt.isoformat()}},
+                ]}
+            })
+
+            # fallback：時段無資料時撈最近 24 小時
+            if not articles:
+                fallback_start = (now_utc - timedelta(hours=24)).isoformat()
+                articles = self._query_news_db({
+                    "filter": {"property": "日期", "date": {"on_or_after": fallback_start}}
+                })
+
+            high = [a for a in articles if a["score"] > 6]
+            low = [a for a in articles if a["score"] <= 6]
+            return (high + low)[:limit]
+
         except Exception as e:
-            logger.error(f"get_latest_ai_news 失敗: {str(e)}")
+            logger.error(f"get_news_by_session 失敗: {str(e)}")
             return []
 
     def count_today_checkins(self) -> int:
