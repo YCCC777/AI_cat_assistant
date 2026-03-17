@@ -269,11 +269,16 @@ class NotionService:
                 ]}
             })
 
-            # fallback：時段無資料時撈最近 24 小時
+            # fallback：時段無資料時撈昨天同時段
             if not articles:
-                fallback_start = (now_utc - timedelta(hours=24)).isoformat()
+                yesterday = today - timedelta(days=1)
+                y_start = datetime(yesterday.year, yesterday.month, yesterday.day, start_h, 0, 0, tzinfo=timezone.utc)
+                y_end = datetime(yesterday.year, yesterday.month, yesterday.day, end_h, 0, 0, tzinfo=timezone.utc)
                 articles = self._query_news_db({
-                    "filter": {"property": "日期", "date": {"on_or_after": fallback_start}}
+                    "filter": {"and": [
+                        {"property": "日期", "date": {"on_or_after": y_start.isoformat()}},
+                        {"property": "日期", "date": {"before": y_end.isoformat()}},
+                    ]}
                 })
 
             high = [a for a in articles if a["score"] > 6]
