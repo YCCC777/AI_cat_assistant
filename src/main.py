@@ -247,20 +247,10 @@ async def handle_text_message(event: MessageEvent):
             reply_token,
             "喵～想讓本喵帶你看什麼資訊呢？🐾",
             [
-                ("📋 iPAS 最新消息", "AI 考試資訊"),
-                ("📰 AI 日報", "AI 日報"),
-            ]
-        )
-        return
-
-    if message_text == "AI 日報":
-        line_service.reply_with_quick_reply(
-            reply_token,
-            "喵～要看哪個時段的新聞呢？📰",
-            [
                 ("🌅 早報", "AI 早報"),
                 ("☀️ 午報", "AI 午報"),
                 ("🌙 晚報", "AI 晚報"),
+                ("📋 iPAS 最新消息", "AI 考試資訊"),
             ]
         )
         return
@@ -366,6 +356,14 @@ async def handle_ai_courses(reply_token: str):
     line_service.reply_text(reply_token, "\n".join(lines))
 
 
+_NEWS_SWITCH_OPTIONS = {
+    "morning":  [("☀️ 午報", "AI 午報"), ("🌙 晚報", "AI 晚報"), ("📋 iPAS 最新消息", "AI 考試資訊")],
+    "afternoon":[("🌅 早報", "AI 早報"), ("🌙 晚報", "AI 晚報"), ("📋 iPAS 最新消息", "AI 考試資訊")],
+    "evening":  [("🌅 早報", "AI 早報"), ("☀️ 午報", "AI 午報"), ("📋 iPAS 最新消息", "AI 考試資訊")],
+    "ipas":     [("🌅 早報", "AI 早報"), ("☀️ 午報", "AI 午報"), ("🌙 晚報", "AI 晚報")],
+}
+
+
 async def handle_ai_exam_info(reply_token: str):
     from src.utils.info_cache import get_cached_info, fetch_and_cache_ipas_news
     try:
@@ -375,7 +373,7 @@ async def handle_ai_exam_info(reply_token: str):
         lines = [f"喵～以下是本喵 {date_str} 趁大家不注意、悄悄出任務爬回來的 iPAS 最新消息！主人請慢用 🐾\n"]
         for item in data["news"][:3]:
             lines.append(f"📌 {item['title']}\n🔗 {item['url']}\n({item['date']})")
-        line_service.reply_text(reply_token, "\n\n".join(lines))
+        line_service.reply_with_quick_reply(reply_token, "\n\n".join(lines), _NEWS_SWITCH_OPTIONS["ipas"])
     except Exception as e:
         logger.error(f"handle_ai_exam_info 失敗: {e}")
         line_service.reply_text(reply_token, "喵嗚...本喵出任務失敗了，iPAS 官網好像在睡覺，請稍後再試喵～🐾")
@@ -384,9 +382,13 @@ async def handle_ai_exam_info(reply_token: str):
 async def handle_ai_news_session(reply_token: str, session: str, label: str):
     news = notion_service.get_news_by_session(session, limit=5)
     if not news:
-        line_service.reply_text(reply_token, f"喵嗚...{label}還沒有新聞喵，等記者貓出任務回來再看看！🐾")
+        line_service.reply_with_quick_reply(
+            reply_token,
+            f"喵嗚...{label}還沒有新聞喵，等記者貓出任務回來再看看！🐾",
+            _NEWS_SWITCH_OPTIONS[session],
+        )
         return
-    line_service.reply_hn_news_carousel(reply_token, news)
+    line_service.reply_hn_news_carousel(reply_token, news, other_options=_NEWS_SWITCH_OPTIONS[session])
 
 
 async def process_and_reply(reply_token: str, message_text: str, user_id: str):

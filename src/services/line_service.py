@@ -494,11 +494,10 @@ class LineService:
             except Exception as e:
                 logger.error(f"reply_quiz_result 失敗: {e}")
 
-    def reply_hn_news_carousel(self, reply_token: str, news_list: list[dict]):
+    def reply_hn_news_carousel(self, reply_token: str, news_list: list[dict], other_options: list[tuple[str, str]] | None = None):
         """
         以 Carousel 顯示 HN 新聞清單。
-        每則：標題 + 摘要 + 「查看原文」連結按鈕。
-        最多顯示 10 則（LINE Carousel 上限）。
+        other_options: [(label, text), ...] 顯示在 Carousel 下方的切換 Quick Reply。
         """
         def truncate(s: str, max_len: int) -> str:
             return s[:max_len - 1] + "…" if len(s) > max_len else s
@@ -522,13 +521,21 @@ class LineService:
 
             columns.append(CarouselColumn(title=title, text=col_text, actions=actions))
 
+        quick_reply = None
+        if other_options:
+            quick_reply = QuickReply(items=[
+                QuickReplyItem(action=MessageAction(label=label, text=msg))
+                for label, msg in other_options
+            ])
+
         try:
             self.messaging_api.reply_message(
                 ReplyMessageRequest(
                     reply_token=reply_token,
                     messages=[TemplateMessage(
                         alt_text="📰 最新 AI 新聞喵！",
-                        template=CarouselTemplate(columns=columns)
+                        template=CarouselTemplate(columns=columns),
+                        quick_reply=quick_reply,
                     )]
                 )
             )

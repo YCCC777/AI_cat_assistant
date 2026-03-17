@@ -261,11 +261,14 @@ class NotionService:
         start_dt = datetime(today.year, today.month, today.day, start_h, 0, 0, tzinfo=timezone.utc)
         end_dt = datetime(today.year, today.month, today.day, end_h, 0, 0, tzinfo=timezone.utc)
 
+        def fmt(dt: datetime) -> str:
+            return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
         try:
             articles = self._query_news_db({
                 "filter": {"and": [
-                    {"property": "日期", "date": {"on_or_after": start_dt.isoformat()}},
-                    {"property": "日期", "date": {"before": end_dt.isoformat()}},
+                    {"property": "日期", "date": {"on_or_after": fmt(start_dt)}},
+                    {"property": "日期", "date": {"before": fmt(end_dt)}},
                 ]}
             })
 
@@ -276,8 +279,8 @@ class NotionService:
                 y_end = datetime(yesterday.year, yesterday.month, yesterday.day, end_h, 0, 0, tzinfo=timezone.utc)
                 articles = self._query_news_db({
                     "filter": {"and": [
-                        {"property": "日期", "date": {"on_or_after": y_start.isoformat()}},
-                        {"property": "日期", "date": {"before": y_end.isoformat()}},
+                        {"property": "日期", "date": {"on_or_after": fmt(y_start)}},
+                        {"property": "日期", "date": {"before": fmt(y_end)}},
                     ]}
                 })
 
