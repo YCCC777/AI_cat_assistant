@@ -241,6 +241,26 @@ class NotionService:
         r.raise_for_status()
         return self._parse_news_results(r.json().get("results", []))
 
+    def get_latest_news(self, limit: int = 5) -> list[dict]:
+        """取最新新聞，不分時段，score > 6 優先，最多 limit 條。"""
+        if not self.notion or not settings.NOTION_NEWS_DB_ID:
+            return []
+        try:
+            r = httpx.post(
+                f"https://api.notion.com/v1/databases/{settings.NOTION_NEWS_DB_ID}/query",
+                headers={"Authorization": f"Bearer {settings.NOTION_TOKEN}", "Notion-Version": NOTION_VERSION},
+                json={"sorts": [{"property": "日期", "direction": "descending"}], "page_size": limit * 3},
+                timeout=15,
+            )
+            r.raise_for_status()
+            articles = self._parse_news_results(r.json().get("results", []))
+            high = [a for a in articles if a["score"] > 6]
+            low = [a for a in articles if a["score"] <= 6]
+            return (high + low)[:limit]
+        except Exception as e:
+            logger.error(f"get_latest_news 失敗: {str(e)}")
+            return []
+
     def get_news_by_session(self, session: str, limit: int = 5) -> list[dict]:
         """
         依早中晚時段從 Notion DB 取新聞，優先回傳 score > 6。

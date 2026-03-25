@@ -247,9 +247,7 @@ async def handle_text_message(event: MessageEvent):
             reply_token,
             "喵～想讓本喵帶你看什麼資訊呢？🐾",
             [
-                ("🌅 早報", "AI 早報"),
-                ("☀️ 午報", "AI 午報"),
-                ("🌙 晚報", "AI 晚報"),
+                ("📰 AI 日報", "AI 日報"),
                 ("📋 iPAS 最新消息", "AI 考試資訊"),
             ]
         )
@@ -288,16 +286,8 @@ async def handle_text_message(event: MessageEvent):
         line_service.reply_text(reply_token, reply)
         return
 
-    if message_text == "AI 早報":
-        await handle_ai_news_session(reply_token, "morning", "🌅 早報")
-        return
-
-    if message_text == "AI 午報":
-        await handle_ai_news_session(reply_token, "afternoon", "☀️ 午報")
-        return
-
-    if message_text == "AI 晚報":
-        await handle_ai_news_session(reply_token, "evening", "🌙 晚報")
+    if message_text == "AI 日報":
+        await handle_ai_news(reply_token)
         return
 
     # 3. 管理員指令
@@ -357,10 +347,8 @@ async def handle_ai_courses(reply_token: str):
 
 
 _NEWS_SWITCH_OPTIONS = {
-    "morning":  [("☀️ 午報", "AI 午報"), ("🌙 晚報", "AI 晚報"), ("📋 iPAS 最新消息", "AI 考試資訊")],
-    "afternoon":[("🌅 早報", "AI 早報"), ("🌙 晚報", "AI 晚報"), ("📋 iPAS 最新消息", "AI 考試資訊")],
-    "evening":  [("🌅 早報", "AI 早報"), ("☀️ 午報", "AI 午報"), ("📋 iPAS 最新消息", "AI 考試資訊")],
-    "ipas":     [("🌅 早報", "AI 早報"), ("☀️ 午報", "AI 午報"), ("🌙 晚報", "AI 晚報")],
+    "news": [("📋 iPAS 最新消息", "AI 考試資訊")],
+    "ipas": [("📰 AI 日報", "AI 日報")],
 }
 
 
@@ -379,16 +367,16 @@ async def handle_ai_exam_info(reply_token: str):
         line_service.reply_text(reply_token, "喵嗚...本喵出任務失敗了，iPAS 官網好像在睡覺，請稍後再試喵～🐾")
 
 
-async def handle_ai_news_session(reply_token: str, session: str, label: str):
-    news = notion_service.get_news_by_session(session, limit=5)
+async def handle_ai_news(reply_token: str):
+    news = notion_service.get_latest_news(limit=5)
     if not news:
         line_service.reply_with_quick_reply(
             reply_token,
-            f"喵嗚...{label}還沒有新聞喵，等記者貓出任務回來再看看！🐾",
-            _NEWS_SWITCH_OPTIONS[session],
+            "喵嗚...今天還沒有新 AI 日報喵，等記者貓出任務回來再看看！🐾",
+            _NEWS_SWITCH_OPTIONS["news"],
         )
         return
-    line_service.reply_hn_news_carousel(reply_token, news, other_options=_NEWS_SWITCH_OPTIONS[session])
+    line_service.reply_hn_news_carousel(reply_token, news, other_options=_NEWS_SWITCH_OPTIONS["news"])
 
 
 async def process_and_reply(reply_token: str, message_text: str, user_id: str):
