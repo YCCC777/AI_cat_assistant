@@ -84,7 +84,7 @@ src/
 │   ├── calendar_service.py # Google Calendar API
 │   ├── notion_service.py   # Notion API (課程DB + 陪讀進度DB + 學習卡DB + 刷題DB)
 │   ├── study_service.py    # 陪讀模組業務邏輯
-│   └── quiz_service.py     # 刷題模組業務邏輯（餵罐罐）⚠️ 尚未部署
+│   └── quiz_service.py     # 刷題模組業務邏輯（餵罐罐）
 └── utils/
     ├── config.py        # pydantic-settings 環境變數設定
     ├── deduplicator.py  # 重複訊息過濾
@@ -133,8 +133,8 @@ NOTION_DATABASE_ID=
 NOTION_USER_PROGRESS_DB_ID=              # 可選 (陪讀功能)
 NOTION_LEARNING_CARD_DB_ID=             # 可選 (陪讀功能)
 ADMIN_LINE_USER_ID=
-NOTION_QUIZ_DB_ID=               # 刷題題庫 DB（已建立，⚠️ 尚未部署）
-NOTION_QUIZ_PROGRESS_DB_ID=      # 刷題用戶進度 DB（已建立，⚠️ 尚未部署）
+NOTION_QUIZ_DB_ID=               # 刷題題庫 DB
+NOTION_QUIZ_PROGRESS_DB_ID=      # 刷題用戶進度 DB
 ```
 
 ## 輪播圖片路徑規則
@@ -147,6 +147,7 @@ https://raw.githubusercontent.com/YCCC777/AI_cat_assistant/main/image/{filename}
 目前圖片：`card_learning.png`, `card_countdown.png`, `card_progress.png`, `card_setting.png`
 
 Rich Menu 圖片：`image/rich_menu.jpg`（Dockerfile build 時自動從 GitHub 下載）
+⚠️ 目前 Rich Menu 已改為四宮格，`rich_menu.jpg` 需換成四宮格設計圖（2500x1686）
 
 ## 重要決策記錄
 
@@ -170,14 +171,17 @@ Rich Menu 圖片：`image/rich_menu.jpg`（Dockerfile build 時自動從 GitHub 
 | 2026-03-11 | 互助激勵系統上線：稱號（動態計算）、里程碑慶祝 push、社群打卡人數、進度提示 |
 | 2026-03-11 | 餵罐罐刷題系統設計完成（quiz_service.py 新建）⚠️ 尚未部署，等題庫準備好後推送 |
 | 2026-03-25 | AI 日報移除早/午/晚報分類，改為直接抓最新 5 條新聞（score > 6 優先） |
+| 2026-03-25 | Rich Menu 改為四宮格 (2500x1686)：最新課程 / AI 週報 / 陪讀專區 / 關於 TAIAA |
+| 2026-03-25 | 新增 TAIAA 宣傳文字過濾：含「TAIAA」或開頭「本Line Bot由」的訊息 Bot 直接忽略不回應 |
+| 2026-03-25 | 學習卡庫擴充至 156 張（新增 #154 直方圖均衡化、#155 演算法選擇策略、#156 生成式AI行業應用）|
 
 ## 已知待改項目
 
-（目前無待修復 Bug）
+- **Rich Menu 圖片需換新**：已改為四宮格，`image/rich_menu.jpg` 需替換成四宮格設計圖，並重新執行「更新選單」
 
-## 刷題系統（餵罐罐）⚠️ 尚未部署
+## 刷題系統（餵罐罐）
 
-### 部署前檢查清單
+### 待辦清單（初級上線前）
 - [ ] 初級題庫填入 Quiz_DB（考古題 + 樣題優先）
 - [ ] 確認 User_Progress_DB 中無中級報名記錄（避免未潤的中級學習卡流出）
 - [ ] 部署後測試：傳「餵罐罐」→ 選科 → 作答 → 對錯回饋 → 下一題 → 50題成績
