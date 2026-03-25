@@ -156,6 +156,10 @@ async def handle_text_message(event: MessageEvent):
 
     logger.info(f"收到訊息 user={user_id[:8]}... text={message_text[:30]!r}")
 
+    # 0a. 忽略 Rich Menu 宣傳文字（關於 TAIAA 格子觸發）
+    if "TAIAA" in message_text or message_text.startswith("本Line Bot由"):
+        return
+
     # 0. 防連打
     if user_limiter.is_too_fast(user_id):
         line_service.reply_text(reply_token, "喵～主人的手速太快了，本喵快跟不上了！請休息 3 秒鐘再傳訊息給我喵～🐾")

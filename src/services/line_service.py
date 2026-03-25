@@ -41,25 +41,32 @@ class LineService:
         初始化 Rich Menu (建立並設定為預設)。
         """
         try:
-            # 1. 定義 Rich Menu 結構 (2500x1686 或 2500x843)
-            # 這裡假設是一個 2500x843 的選單，分三個區域
+            # 1. 定義 Rich Menu 結構 (2500x1686，四宮格)
             rich_menu_request = RichMenuRequest(
-                size=RichMenuSize(width=2500, height=843),
+                size=RichMenuSize(width=2500, height=1686),
                 selected=True,
                 name="貓咪助手功能選單",
                 chat_bar_text="點我打開選單喵！🐾",
                 areas=[
+                    # 上排左：最新課程
                     RichMenuArea(
-                        bounds=RichMenuBounds(x=0, y=0, width=833, height=843),
-                        action=MessageAction(label="AI 課程", text="AI 課程")
+                        bounds=RichMenuBounds(x=0, y=0, width=1250, height=843),
+                        action=MessageAction(label="最新課程", text="AI 課程")
                     ),
+                    # 上排右：AI 週報
                     RichMenuArea(
-                        bounds=RichMenuBounds(x=833, y=0, width=834, height=843),
-                        action=MessageAction(label="AI 資訊", text="AI 資訊")
+                        bounds=RichMenuBounds(x=1250, y=0, width=1250, height=843),
+                        action=MessageAction(label="AI 週報", text="AI 日報")
                     ),
+                    # 下排左：陪讀專區
                     RichMenuArea(
-                        bounds=RichMenuBounds(x=1667, y=0, width=833, height=843),
+                        bounds=RichMenuBounds(x=0, y=843, width=1250, height=843),
                         action=MessageAction(label="陪讀專區", text="貓咪陪讀")
+                    ),
+                    # 下排右：關於 TAIAA（宣傳文字，Bot 會忽略不回應）
+                    RichMenuArea(
+                        bounds=RichMenuBounds(x=1250, y=843, width=1250, height=843),
+                        action=MessageAction(label="關於 TAIAA", text="本Line Bot由 TAIAA 台灣人工智慧應用推廣協會 × Risa 偕同開發。")
                     ),
                 ]
             )
